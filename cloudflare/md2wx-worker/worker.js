@@ -15,6 +15,9 @@
  *   WECHAT_APPSECRET   微信 secret 兜底（请求体 secret 优先）
  */
 
+import { markdownToWechatHtml, parseFrontmatter } from '../../web/src/core/parser.js';
+import { BUILTIN_THEMES, DEFAULT_THEME_ID, listThemes } from '../../web/src/core/themes.js';
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -29,6 +32,41 @@ function json(obj, status = 200) {
   });
 }
 
+async function enforceConvertRateLimit(request, env) {
+  const limiter = env.CONVERT_RATE_LIMITER;
+  if (!limiter || typeof limiter.limit !== 'function') return null;
+  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+  const { success } = await limiter.limit({ key: `convert:${ip}` });
+  if (!success) return json({ code: 1, msg: '请求过于频繁，请稍后再试' }, 429);
+  return null;
+}
+
+function resolveThemeId(theme) {
+  return theme && Object.prototype.hasOwnProperty.call(BUILTIN_THEMES, theme)
+    ? theme
+    : DEFAULT_THEME_ID;
+}
+
+function buildConvertResult(body) {
+  const themeId = resolveThemeId(body.theme);
+  const html = markdownToWechatHtml(body.markdown, themeId);
+  const { meta } = parseFrontmatter(body.markdown);
+  return {
+    code: 0,
+    html,
+    title: body.title || meta.title || '',
+    digest: body.digest || meta.digest || '',
+    theme: themeId,
+  };
+}
+
+function handleConvert(body) {
+  if (typeof body.markdown !== 'string' || !body.markdown.trim()) {
+    return json({ code: 1, msg: 'markdown 必填且不能为空' }, 400);
+  }
+  return json(buildConvertResult(body));
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -39,6 +77,18 @@ export default {
 
     if (request.method === 'GET' && url.pathname === '/api/health') {
       return json({ ok: true, service: 'md2wx-worker' });
+    }
+
+    if (request.method === 'GET' && url.pathname === '/api/themes') {
+      return json({ code: 0, themes: listThemes() });
+    }
+
+    if (request.method === 'POST' && url.pathname === '/api/convert') {
+      const limited = await enforceConvertRateLimit(request, env);
+      if (limited) return limited;
+      let body;
+      try { body = await request.json(); } catch { return json({ code: 1, msg: 'invalid json' }, 400); }
+      return handleConvert(body);
     }
 
     return json({ code: 1, msg: 'not found' }, 404);
