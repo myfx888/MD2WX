@@ -100,6 +100,31 @@
                 <span class="slider round"></span>
               </label>
             </div>
+
+            <div class="settings-divider"></div>
+
+            <div class="settings-header">
+              <span id="icon-send-title"></span>
+              <span>公众号推送</span>
+            </div>
+
+            <div class="settings-item">
+              <div class="settings-label">推送 API Key</div>
+              <input type="password" class="settings-input" id="push-api-key" placeholder="Worker 的 DRAFT_API_KEY" autocomplete="off">
+            </div>
+
+            <div class="settings-item">
+              <div class="settings-label">推送端点 URL（留空 = 本站 /api/draft）</div>
+              <input type="text" class="settings-input" id="push-endpoint" placeholder="https://md2wx-worker.你的子域.workers.dev/api/draft" autocomplete="off">
+            </div>
+
+            <div class="settings-item">
+              <div class="settings-label">AppID / Secret（可选，多公众号穿透）</div>
+              <div class="push-cred-row">
+                <input type="text" class="settings-input" id="push-appid" placeholder="wx appid（可选）" autocomplete="off">
+                <input type="password" class="settings-input" id="push-secret" placeholder="wx secret（可选）" autocomplete="off">
+              </div>
+            </div>
           </div>
         </div>
 
@@ -111,6 +136,11 @@
         <button class="btn btn-secondary" id="btn-export-html" type="button" title="导出自包含的微信排版 HTML 文件">
           <span id="icon-download"></span>
           <span>导出 HTML</span>
+        </button>
+
+        <button class="btn btn-secondary" id="btn-push-draft" type="button" title="推送当前文章到微信公众号草稿箱（需在设置中配置 API Key）">
+          <span id="icon-push"></span>
+          <span>推送草稿箱</span>
         </button>
 
         <button class="btn btn-primary" id="btn-copy-header" type="button" title="写入系统剪贴板 (快捷键: Cmd+Enter 或 Ctrl+Enter)">

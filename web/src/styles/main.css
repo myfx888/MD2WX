@@ -515,3 +515,25 @@ input:checked + .slider:before {
 .slider.round:before {
   border-radius: 50%;
 }
+
+/* 公众号推送设置输入项 */
+.settings-input {
+  width: 100%;
+  margin-top: 6px;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  color: var(--text-secondary, #52525b);
+  background: var(--control-bg, #f7f7f8);
+  border: 1px solid var(--border-color, #e4e4e7);
+  border-radius: 7px;
+  outline: none;
+}
+
+.settings-input:focus {
+  border-color: var(--accent, #2563eb);
+}
+
+.push-cred-row {
+  display: flex;
+  gap: 8px;
+}

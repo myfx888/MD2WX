@@ -66,6 +66,11 @@ let currentLineHeight = localStorage.getItem('md2wx_line_height') || '1.8';
 let enableFootnotes = localStorage.getItem('md2wx_enable_footnotes') !== 'false';
 let enableSyncScroll = localStorage.getItem('md2wx_sync_scroll') !== 'false';
 let insertCoverEnabled = localStorage.getItem('md2wx_insert_cover') !== 'false'; // 排版微调：正文顶部插入封面图 (默认勾选)
+// 公众号推送配置（localStorage 持久化；secret 仅存本机浏览器，敏感场景建议留空走 Worker env）
+let pushApiKey = localStorage.getItem('md2wx_push_api_key') || '';
+let pushEndpoint = localStorage.getItem('md2wx_push_endpoint') || '';
+let pushAppId = localStorage.getItem('md2wx_push_appid') || '';
+let pushSecret = localStorage.getItem('md2wx_push_secret') || '';
 let isSyncingScroll = false;
 let debounceTimer = null;
 let currentHtmlOutput = '';
@@ -110,6 +115,8 @@ function initIcons() {
   // Toolbar & Header Icons
   setIcon('#icon-settings', 'settings');
   setIcon('#icon-sliders-title', 'sliders');
+  setIcon('#icon-push', 'send');
+  setIcon('#icon-send-title', 'send');
   setIcon('#icon-bold', 'bold');
   setIcon('#icon-italic', 'italic');
   setIcon('#icon-h1', 'heading1');
@@ -484,6 +491,74 @@ async function handleCopy() {
 }
 
 /**
+ * 推送当前文章到微信草稿箱（调用 MD2WX Worker /api/draft，服务端完成转换、换链与封面解析）
+ */
+async function handlePushDraft() {
+  const md = textarea.value;
+  if (!md.trim()) {
+    showToast('当前没有可推送的内容', 'error');
+    return;
+  }
+  if (!pushApiKey) {
+    showToast('请先在设置中配置推送 API Key', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btn-push-draft');
+  const origHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `${ICONS.refresh}<span>推送中…</span>`;
+
+  const endpoint = pushEndpoint.trim() || '/api/draft';
+  const payload = { markdown: md, theme: currentThemeId };
+  if (pushAppId.trim()) payload.appid = pushAppId.trim();
+  if (pushSecret.trim()) payload.secret = pushSecret.trim();
+
+  try {
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': pushApiKey },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (resp.ok && data.code === 0) {
+      showToast('草稿推送成功！请到微信公众号后台查看');
+      btn.innerHTML = `${ICONS.check}<span>已推送</span>`;
+      setTimeout(() => { btn.innerHTML = origHtml; }, 1800);
+    } else {
+      showToast('推送失败: ' + (data.msg || `HTTP ${resp.status}`), 'error');
+      btn.innerHTML = origHtml;
+    }
+  } catch (err) {
+    showToast('推送失败: ' + (err.message || '网络错误'), 'error');
+    btn.innerHTML = origHtml;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/**
+ * 初始化公众号推送设置项（输入即持久化到 localStorage）
+ */
+function initPushSettings() {
+  const fields = [
+    { id: 'push-api-key', key: 'md2wx_push_api_key', set: (v) => { pushApiKey = v; } },
+    { id: 'push-endpoint', key: 'md2wx_push_endpoint', set: (v) => { pushEndpoint = v; } },
+    { id: 'push-appid', key: 'md2wx_push_appid', set: (v) => { pushAppId = v; } },
+    { id: 'push-secret', key: 'md2wx_push_secret', set: (v) => { pushSecret = v; } },
+  ];
+  for (const f of fields) {
+    const el = document.getElementById(f.id);
+    if (!el) continue;
+    el.value = localStorage.getItem(f.key) || '';
+    el.addEventListener('input', () => {
+      f.set(el.value.trim());
+      localStorage.setItem(f.key, el.value.trim());
+    });
+  }
+}
+
+/**
  * 更新手机顶部实时时钟
  */
 function updateClock() {
@@ -526,6 +601,8 @@ function bindEvents() {
     downloadHtmlFile(currentHtmlOutput, 'md2wx-article.html');
     showToast('已导出自包含微信排版 HTML 文件');
   });
+
+  document.getElementById('btn-push-draft').addEventListener('click', handlePushDraft);
 
   document.getElementById('btn-load-sample').addEventListener('click', () => {
     textarea.value = DEFAULT_SAMPLE_ARTICLE;
@@ -1201,6 +1278,7 @@ function init() {
   initIcons();
   renderThemeDropdown();
   initSettings();
+  initPushSettings();
   initCoverStudio();
   initChangelogModal();
   updateClock();
