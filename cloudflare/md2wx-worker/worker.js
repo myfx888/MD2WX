@@ -92,7 +92,9 @@ export class WeChat {
   constructor(appid, secret, fetchImpl = globalThis.fetch) {
     this.appid = appid;
     this.secret = secret;
-    this.fetch = fetchImpl;
+    // workerd 的 fetch 对 this 敏感：以实例属性形式调用会抛 Illegal invocation，
+    // 必须绑定到全局对象；注入的测试 mock 为普通函数，bind 无副作用
+    this.fetch = fetchImpl.bind(globalThis);
   }
 
   async getToken() {
