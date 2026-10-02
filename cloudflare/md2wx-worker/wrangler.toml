@@ -1,0 +1,24 @@
+name = "md2wx-worker"
+main = "worker.js"
+compatibility_date = "2025-06-01"
+
+# 整站静态资产：部署前先在 web/ 目录执行 npm ci && npm run build 生成 web/dist
+# 风险预案：若 wrangler 拒绝父级相对路径，改用 predeploy 脚本把 web/dist 复制到本目录 assets/ 并将 directory 改为 "assets"
+[assets]
+directory = "../../web/dist"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+# /api/convert 公开转换限流：单 IP 每 60 秒最多 60 次
+[[ratelimits]]
+name = "CONVERT_RATE_LIMITER"
+namespace_id = "1002"
+
+  [ratelimits.simple]
+  limit = 60
+  period = 60
+
+# 密钥一律走 wrangler secret put（本地开发用 .dev.vars，勿提交）：
+#   DRAFT_API_KEY      /api/draft 鉴权 Key；未配置则推送接口直接拒绝（fail-closed）
+#   WECHAT_APPID       微信 appid 兜底（请求体 appid 优先）
+#   WECHAT_APPSECRET   微信 secret 兜底（请求体 secret 优先）
