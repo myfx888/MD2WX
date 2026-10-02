@@ -14,6 +14,7 @@ devlogs/
 ├── devlog_part3_cloud_deploy.md        # Part 3: GitHub Pages 自动化部署与微信排版黑科技
 ├── devlog_part4_cover_studio.md       # Part 4: 9大主题专属封面、1:1安全区与真机大字排版
 ├── devlog_part5_dual_cover_architecture.md # Part 5: MD2WX 双封面拼接与坐标直推实践
+├── devlog_part6_worker_unified.md     # Part 6: 一体化 Worker 上线与整站托管
 └── devlog_imagehost_feature.md        # 专题指南: MD2WX 图床系统与自动换链指南
 ```
 
@@ -64,6 +65,14 @@ devlogs/
   - 推导高精度归一化裁剪坐标（`pic_crop_235_1="0_0_0.701493_1"`、`pic_crop_1_1="0.701493_0_1_1"`，误差 $< 0.0001\%$），直推微信官方草稿箱并自动配准。
   - 纯前端 Web Studio 同步上线 3350x1000 双图合拼预览画板、双引擎超清导出与裁剪坐标一键复制工具。
   - 全面总结代码块“微信四重净化”真机兼容规范（自包含换行、滚动容器底色防漏底、字体栈优化）及 Cloudflare R2 极速在线图床与自动换链体系。
+
+### [Part 6: 一体化 Worker 上线](devlog_part6_worker_unified.md)
+- **关联模块**：`cloudflare/md2wx-worker/`、`web/src/core/`
+- **主要内容**：
+  - 整站静态托管、转换 API 与微信草稿箱推送 API 合并进单个 Cloudflare Worker，旧 worker-deploy.js 可退役。
+  - 转换引擎跨目录直引 `web/src/core/` 四个无 DOM 模块，web/ 零改动，主题保持单一数据源。
+  - 推送逻辑移植三处增强：token 缓存按 appid 隔离、fetch 可注入便于测试、鉴权 fail-closed。
+  - 测试方案：esbuild 打包解决无断言 JSON 导入的 Node 兼容，`node --test` 直调 worker.fetch，16 用例覆盖全链路。
 
 ### [专题指南: MD2WX 图床系统与自动换链指南](devlog_imagehost_feature.md)
 - **关联模块**：`md2wx/imagehost.py`、`cloudflare/r2-imagehost/`、`md2wx/uploader.py`

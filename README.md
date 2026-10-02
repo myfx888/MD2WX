@@ -377,6 +377,10 @@ Web Studio 是纯静态站点，图床配置通过 Vite 构建期环境变量（
 
 > **安全提示**：`VITE_` 变量会被打包进公开产物，请勿填入敏感令牌；仅用于无鉴权的公开上传端点（如自建 Cloudflare Worker + R2）。
 
+### 一体化 Cloudflare Worker 部署（整站 + 转换 API + 草稿推送）
+
+除 GitHub Pages 外，可将整站与 API 一并部署至 Cloudflare Worker（单部署单元），详见 [cloudflare/md2wx-worker/README.md](cloudflare/md2wx-worker/README.md)。
+
 ---
 
 ## Python API 调用

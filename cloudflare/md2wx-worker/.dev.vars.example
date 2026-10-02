@@ -1,0 +1,4 @@
+# 复制为 .dev.vars 供 wrangler dev 本地使用（.dev.vars 已被 .gitignore 忽略）
+DRAFT_API_KEY=dev-key-123
+WECHAT_APPID=wx-your-appid
+WECHAT_APPSECRET=your-secret
