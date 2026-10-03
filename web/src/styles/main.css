@@ -539,12 +539,17 @@ input:checked + .slider:before {
 }
 
 /* 发布工坊（Publish Studio） */
-.publish-modal-window {
+/* 覆盖 cover-modal 的窗体高度与两列栅格（发布工坊为纵向流式布局，双类提升优先级） */
+.cover-modal-window.publish-modal-window {
   max-width: 560px;
   width: 92vw;
+  height: auto;
+  max-height: 88vh;
 }
 
-.publish-modal-body {
+.cover-modal-body.publish-modal-body {
+  display: block;
+  overflow-y: auto;
   padding: 16px 18px 18px;
 }
 
