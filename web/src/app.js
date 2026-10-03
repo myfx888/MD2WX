@@ -8,7 +8,8 @@ import { BUILTIN_THEMES, DEFAULT_THEME_ID, getTheme, isDarkTheme } from './core/
 import { markdownToWechatHtml, parseFrontmatter } from './core/parser.js';
 import { copyWechatHtml, downloadHtmlFile } from './core/clipboard.js';
 import { COVER_DIMENSIONS, extractCoverMeta, renderCoverHtml, THEME_COVER_PRESETS, WECHAT_CROP_COORDINATES } from './core/cover.js';
-import { domToPngBlob, copyImageToClipboard, downloadImageBlob } from './core/canvas_exporter.js';
+import { domToPngBlob, copyImageToClipboard, downloadImageBlob, renderCoverDirectCanvas } from './core/canvas_exporter.js';
+import { extractPublishMeta, buildPublishPayload, resolvePushConfig, readPushHistory, recordPush, countWords } from './core/publish.js';
 import {
   isImageHostConfigured,
   uploadImageFile,
@@ -117,6 +118,9 @@ function initIcons() {
   setIcon('#icon-sliders-title', 'sliders');
   setIcon('#icon-push', 'send');
   setIcon('#icon-send-title', 'send');
+  setIcon('#icon-publish-window', 'send');
+  setIcon('#icon-publish-close', 'x');
+  setIcon('#icon-publish-push', 'send');
   setIcon('#icon-bold', 'bold');
   setIcon('#icon-italic', 'italic');
   setIcon('#icon-h1', 'heading1');
@@ -491,71 +495,204 @@ async function handleCopy() {
 }
 
 /**
- * 推送当前文章到微信草稿箱（调用 MD2WX Worker /api/draft，服务端完成转换、换链与封面解析）
+ * 发布工坊：统一配置、预览、推送与历史
  */
-async function handlePushDraft() {
-  const md = textarea.value;
-  if (!md.trim()) {
-    showToast('当前没有可推送的内容', 'error');
-    return;
-  }
-  if (!pushApiKey) {
-    showToast('请先在设置中配置推送 API Key', 'error');
-    return;
-  }
+function initPublishStudio() {
+  const overlay = document.getElementById('publish-modal-overlay');
+  const btnOpen = document.getElementById('btn-open-publish');
+  const btnClose = document.getElementById('btn-close-publish-modal');
+  const btnPush = document.getElementById('btn-publish-push');
+  const titleInput = document.getElementById('publish-title');
+  const digestInput = document.getElementById('publish-digest');
+  const digestCount = document.getElementById('publish-digest-count');
+  const themeBadge = document.getElementById('publish-theme-badge');
+  const wordCount = document.getElementById('publish-word-count');
+  const coverThumb = document.getElementById('publish-cover-thumb');
+  const coverStatus = document.getElementById('publish-cover-status');
+  const useCoverToggle = document.getElementById('publish-use-cover');
+  const useCoverRow = document.getElementById('publish-cover-toggle-row');
+  const connStatus = document.getElementById('publish-conn-status');
+  const configToggle = document.getElementById('btn-publish-config-toggle');
+  const configBody = document.getElementById('publish-config-body');
+  const historyList = document.getElementById('publish-history-list');
 
-  const btn = document.getElementById('btn-push-draft');
-  const origHtml = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = `${ICONS.refresh}<span>推送中…</span>`;
+  if (!overlay || !btnOpen) return;
 
-  const endpoint = pushEndpoint.trim() || '/api/draft';
-  const payload = { markdown: md, theme: currentThemeId };
-  if (pushAppId.trim()) payload.appid = pushAppId.trim();
-  if (pushSecret.trim()) payload.secret = pushSecret.trim();
-
-  try {
-    const resp = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-API-Key': pushApiKey },
-      body: JSON.stringify(payload),
-    });
-    const data = await resp.json().catch(() => ({}));
-    if (resp.ok && data.code === 0) {
-      showToast('草稿推送成功！请到微信公众号后台查看');
-      btn.innerHTML = `${ICONS.check}<span>已推送</span>`;
-      setTimeout(() => { btn.innerHTML = origHtml; }, 1800);
-    } else {
-      showToast('推送失败: ' + (data.msg || `HTTP ${resp.status}`), 'error');
-      btn.innerHTML = origHtml;
-    }
-  } catch (err) {
-    showToast('推送失败: ' + (err.message || '网络错误'), 'error');
-    btn.innerHTML = origHtml;
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-/**
- * 初始化公众号推送设置项（输入即持久化到 localStorage）
- */
-function initPushSettings() {
-  const fields = [
+  const configFields = [
     { id: 'push-api-key', key: 'md2wx_push_api_key', set: (v) => { pushApiKey = v; } },
     { id: 'push-endpoint', key: 'md2wx_push_endpoint', set: (v) => { pushEndpoint = v; } },
     { id: 'push-appid', key: 'md2wx_push_appid', set: (v) => { pushAppId = v; } },
     { id: 'push-secret', key: 'md2wx_push_secret', set: (v) => { pushSecret = v; } },
   ];
-  for (const f of fields) {
+
+  // 输入即持久化（沿用旧键，老用户无感迁移）
+  for (const f of configFields) {
     const el = document.getElementById(f.id);
     if (!el) continue;
     el.value = localStorage.getItem(f.key) || '';
     el.addEventListener('input', () => {
       f.set(el.value.trim());
       localStorage.setItem(f.key, el.value.trim());
+      renderConnStatus();
     });
   }
+
+  function renderHistory() {
+    const items = readPushHistory();
+    historyList.innerHTML = items.length
+      ? items.map((h) => {
+          const time = new Date(h.t).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+          const mark = h.ok ? '<span class="ph-ok">✓</span>' : '<span class="ph-fail">✗</span>';
+          const detail = h.ok ? '' : `<span style="color:#dc2626;">${(h.msg || '').slice(0, 60)}</span>`;
+          return `<li><span class="ph-time">${time}</span>${mark}<span>${h.title}</span>${detail}</li>`;
+        }).join('')
+      : '<li style="border:none;color:#a1a1aa;">暂无推送记录</li>';
+  }
+
+  function renderConnStatus() {
+    const cfg = resolvePushConfig(pushApiKey, pushEndpoint);
+    connStatus.className = 'publish-conn-status ' + (cfg.ok ? 'is-ok' : 'is-warn');
+    connStatus.textContent = cfg.ok
+      ? `● 已配置 · 端点 ${cfg.endpoint}`
+      : `● ${cfg.reason}——展开下方「连接配置」填写`;
+    btnPush.disabled = !cfg.ok || !titleInput.value.trim();
+  }
+
+  function renderCoverPreview() {
+    const useWorkshop = useCoverToggle.checked;
+    const meta = extractPublishMeta(textarea.value);
+    if (useWorkshop) {
+      // 封面工坊当前封面：CSS 同源渲染并等比缩到缩略尺寸
+      const ratio = 150 / 1175;
+      coverThumb.innerHTML = `<div class="publish-cover-scaled" style="width:1175px;height:500px;transform:scale(${ratio});">${renderCoverHtml(currentThemeId, 'banner', currentCoverMeta || {}, false)}</div>`;
+      coverStatus.className = 'publish-cover-status is-ok';
+      coverStatus.textContent = '封面来源：封面工坊 ✓（推送时自动导出上传）';
+      return;
+    }
+    if (meta.coverImageSrc) {
+      coverThumb.innerHTML = `<img src="${meta.coverImageSrc}" alt="cover">`;
+      coverStatus.className = 'publish-cover-status is-ok';
+      coverStatus.textContent = '封面来源：正文首图 ✓';
+    } else {
+      coverThumb.innerHTML = '<div class="publish-cover-empty">暂无封面</div>';
+      coverStatus.className = 'publish-cover-status is-error';
+      coverStatus.textContent = '⚠ 无封面——正文没有图片，微信将拒绝推送。请先在正文插入图片或使用封面工坊封面';
+    }
+  }
+
+  function fillFromArticle() {
+    const meta = extractPublishMeta(textarea.value);
+    titleInput.value = meta.title;
+    digestInput.value = meta.digest;
+    themeBadge.textContent = (BUILTIN_THEMES[currentThemeId] || {}).name || currentThemeId;
+    wordCount.textContent = `${countWords(textarea.value)} 字`;
+    if (digestCount) digestCount.textContent = `${digestInput.value.length} 字`;
+  }
+
+  function refreshUseCoverAvailability() {
+    // 工坊封面元数据存在即可勾选（打开过封面工坊或正文可提取）
+    const available = !!currentCoverMeta || !!extractPublishMeta(textarea.value).title;
+    useCoverRow.classList.toggle('is-disabled', !available);
+    useCoverToggle.disabled = !available;
+  }
+
+  function openPublishModal() {
+    fillFromArticle();
+    refreshUseCoverAvailability();
+    useCoverToggle.checked = localStorage.getItem('md2wx_push_use_cover') === '1' && !useCoverToggle.disabled;
+    renderCoverPreview();
+    renderConnStatus();
+    renderHistory();
+    overlay.classList.add('active');
+  }
+
+  function closePublishModal() {
+    overlay.classList.remove('active');
+  }
+
+  btnOpen.addEventListener('click', openPublishModal);
+  btnClose.addEventListener('click', closePublishModal);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closePublishModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay.classList.contains('active')) closePublishModal();
+  });
+
+  titleInput.addEventListener('input', renderConnStatus);
+  digestInput.addEventListener('input', () => {
+    if (digestCount) digestCount.textContent = `${digestInput.value.length} 字`;
+  });
+  useCoverToggle.addEventListener('change', () => {
+    localStorage.setItem('md2wx_push_use_cover', useCoverToggle.checked ? '1' : '0');
+    renderCoverPreview();
+  });
+
+  configToggle.addEventListener('click', () => {
+    configBody.hidden = !configBody.hidden;
+    configToggle.textContent = configBody.hidden ? '▸ 连接配置' : '▾ 连接配置';
+  });
+
+  btnPush.addEventListener('click', async () => {
+    const cfg = resolvePushConfig(pushApiKey, pushEndpoint);
+    if (!cfg.ok || !titleInput.value.trim()) return;
+
+    const origHtml = btnPush.innerHTML;
+    btnPush.disabled = true;
+    btnPush.innerHTML = `${ICONS.refresh}<span>推送中…</span>`;
+
+    let coverDataUrl = '';
+    try {
+      if (useCoverToggle.checked) {
+        const canvas = renderCoverDirectCanvas(currentThemeId, 'banner', currentCoverMeta || {}, 1);
+        coverDataUrl = canvas.toDataURL('image/png');
+      }
+    } catch (e) {
+      coverDataUrl = ''; // 导出失败回落正文首图
+    }
+
+    const payload = buildPublishPayload({
+      markdown: textarea.value,
+      theme: currentThemeId,
+      title: titleInput.value,
+      digest: digestInput.value,
+      coverDataUrl,
+      appId: pushAppId,
+      appSecret: pushSecret,
+    });
+
+    try {
+      const resp = await fetch(cfg.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': pushApiKey },
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok && data.code === 0) {
+        showToast('草稿推送成功！请到微信公众号后台查看');
+        btnPush.innerHTML = `${ICONS.check}<span>已推送 ✓</span>`;
+        recordPush({ t: Date.now(), title: titleInput.value, ok: true, mediaId: data.media_id });
+        renderHistory();
+        setTimeout(() => { btnPush.innerHTML = origHtml; renderConnStatus(); }, 1800);
+      } else {
+        const msg = data.msg || `HTTP ${resp.status}`;
+        showToast('推送失败: ' + msg, 'error');
+        recordPush({ t: Date.now(), title: titleInput.value, ok: false, msg });
+        renderHistory();
+        btnPush.innerHTML = origHtml;
+        renderConnStatus();
+      }
+    } catch (err) {
+      const msg = err.message || '网络错误';
+      showToast('推送失败: ' + msg, 'error');
+      recordPush({ t: Date.now(), title: titleInput.value, ok: false, msg });
+      renderHistory();
+      btnPush.innerHTML = origHtml;
+      renderConnStatus();
+    } finally {
+      if (!btnPush.innerHTML.includes('已推送')) btnPush.disabled = false;
+    }
+  });
 }
 
 /**
@@ -601,8 +738,6 @@ function bindEvents() {
     downloadHtmlFile(currentHtmlOutput, 'md2wx-article.html');
     showToast('已导出自包含微信排版 HTML 文件');
   });
-
-  document.getElementById('btn-push-draft').addEventListener('click', handlePushDraft);
 
   document.getElementById('btn-load-sample').addEventListener('click', () => {
     textarea.value = DEFAULT_SAMPLE_ARTICLE;
@@ -1278,7 +1413,7 @@ function init() {
   initIcons();
   renderThemeDropdown();
   initSettings();
-  initPushSettings();
+  initPublishStudio();
   initCoverStudio();
   initChangelogModal();
   updateClock();
