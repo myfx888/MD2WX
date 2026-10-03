@@ -19,3 +19,6 @@ web/.env.local
 # Worker 本地密钥与测试打包产物
 .dev.vars
 cloudflare/md2wx-worker/test/.worker.bundle.mjs
+
+# Brainstorming visual companion 产物
+.superpowers/
