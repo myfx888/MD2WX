@@ -57,7 +57,7 @@
 
 - 前置校验：Key 已配置、标题非空（为空禁用按钮）；
 - 按钮进入 loading（禁用 + 「推送中…」）；
-- `POST /api/draft`（端点默认同源 `/api/draft`）：`{ markdown, theme, title?, digest?, cover?, appid?, secret? }`——title/digest 仅在用户改动过（非空且 ≠ 提取值）时携带；cover 仅在勾选工坊联动时携带（`domToPngBlob` 导出 Blob 后经 `FileReader.readAsDataURL` 转 dataURL）；
+- `POST /api/draft`（端点默认同源 `/api/draft`）：`{ markdown, theme, title?, digest?, cover?, appid?, secret? }`——title/digest **非空即携带**（服务端自身提取逻辑是其子集，显式值总是安全；H1 回退提取的标题必须携带，否则无 frontmatter 的文章会被服务端 400 拒绝）；cover 仅在勾选工坊联动时携带（`renderCoverDirectCanvas` 直绘 canvas 后 `toDataURL` 转 dataURL）；
 - 成功（`code:0`）：按钮「已推送 ✓」1.8s 恢复 + toast「草稿推送成功」+ 写入历史；
 - 失败：toast 错误信息（含服务端 `msg`）+ 失败项入历史（错误信息截断 80 字）；
 - 历史写入：`unshift` 后截断 5 条，持久化 `md2wx_push_history`。
