@@ -1,4 +1,4 @@
-name = "md2wx-worker"
+name = "gzh"
 main = "worker.js"
 compatibility_date = "2025-06-01"
 
