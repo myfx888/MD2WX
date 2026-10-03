@@ -22,3 +22,4 @@ cloudflare/md2wx-worker/test/.worker.bundle.mjs
 
 # Brainstorming visual companion 产物
 .superpowers/
+cloudflare/md2wx-worker/test/.publish.bundle.mjs

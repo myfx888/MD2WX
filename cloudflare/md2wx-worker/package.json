@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:test": "esbuild worker.js --bundle --format=esm --outfile=test/.worker.bundle.mjs",
-    "test": "npm run build:test && node --test test/engine.test.mjs",
+    "build:test": "esbuild worker.js --bundle --format=esm --outfile=test/.worker.bundle.mjs && esbuild ../../web/src/core/publish.js --bundle --format=esm --outfile=test/.publish.bundle.mjs",
+    "test": "npm run build:test && node --test test/engine.test.mjs test/publish.test.mjs",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy"
   },
