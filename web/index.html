@@ -100,31 +100,6 @@
                 <span class="slider round"></span>
               </label>
             </div>
-
-            <div class="settings-divider"></div>
-
-            <div class="settings-header">
-              <span id="icon-send-title"></span>
-              <span>公众号推送</span>
-            </div>
-
-            <div class="settings-item">
-              <div class="settings-label">推送 API Key</div>
-              <input type="password" class="settings-input" id="push-api-key" placeholder="Worker 的 DRAFT_API_KEY" autocomplete="off">
-            </div>
-
-            <div class="settings-item">
-              <div class="settings-label">推送端点 URL（留空 = 本站 /api/draft）</div>
-              <input type="text" class="settings-input" id="push-endpoint" placeholder="https://md2wx-worker.你的子域.workers.dev/api/draft" autocomplete="off">
-            </div>
-
-            <div class="settings-item">
-              <div class="settings-label">AppID / Secret（可选，多公众号穿透）</div>
-              <div class="push-cred-row">
-                <input type="text" class="settings-input" id="push-appid" placeholder="wx appid（可选）" autocomplete="off">
-                <input type="password" class="settings-input" id="push-secret" placeholder="wx secret（可选）" autocomplete="off">
-              </div>
-            </div>
           </div>
         </div>
 
@@ -138,9 +113,9 @@
           <span>导出 HTML</span>
         </button>
 
-        <button class="btn btn-secondary" id="btn-push-draft" type="button" title="推送当前文章到微信公众号草稿箱（需在设置中配置 API Key）">
+        <button class="btn btn-secondary" id="btn-open-publish" type="button" title="打开发布工坊：预览并推送到微信公众号草稿箱">
           <span id="icon-push"></span>
-          <span>推送草稿箱</span>
+          <span>发布</span>
         </button>
 
         <button class="btn btn-primary" id="btn-copy-header" type="button" title="写入系统剪贴板 (快捷键: Cmd+Enter 或 Ctrl+Enter)">
@@ -444,6 +419,79 @@
                 <div class="wechat-share-thumb" id="preview-share-thumb">
                   <div id="preview-share-thumb-box" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#34d399;">1:1</div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Publish Studio -->
+    <div class="cover-modal-overlay" id="publish-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="publish-modal-title">
+      <div class="cover-modal-window publish-modal-window">
+        <div class="cover-modal-header">
+          <div class="cover-header-title-group">
+            <div class="cover-header-icon" id="icon-publish-window"></div>
+            <div class="cover-header-title" id="publish-modal-title">
+              <span>发布工坊</span>
+              <span class="cover-header-badge">草稿箱直推</span>
+            </div>
+          </div>
+          <button class="cover-modal-close-btn" id="btn-close-publish-modal" type="button" title="关闭 (Esc)">
+            <span id="icon-publish-close"></span>
+          </button>
+        </div>
+        <div class="cover-modal-body publish-modal-body">
+          <div class="publish-preview">
+            <div class="publish-cover-thumb" id="publish-cover-thumb">
+              <div class="publish-cover-empty">暂无封面</div>
+            </div>
+            <div class="publish-fields">
+              <input type="text" class="settings-input" id="publish-title" placeholder="标题（推送前必填）" autocomplete="off">
+              <textarea class="settings-input publish-digest-input" id="publish-digest" rows="2" placeholder="摘要（留空则由服务端提取）"></textarea>
+              <div class="publish-meta-row">
+                <span class="publish-theme-badge" id="publish-theme-badge"></span>
+                <span class="publish-word-count" id="publish-word-count"></span>
+                <span class="publish-word-count" id="publish-digest-count"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="publish-cover-status" id="publish-cover-status"></div>
+
+          <label class="publish-cover-toggle" id="publish-cover-toggle-row">
+            <input type="checkbox" id="publish-use-cover">
+            <span>使用封面工坊的封面（推送时自动导出上传）</span>
+          </label>
+
+          <div class="publish-conn-status" id="publish-conn-status"></div>
+
+          <button class="btn btn-primary publish-push-btn" id="btn-publish-push" type="button">
+            <span id="icon-publish-push"></span>
+            <span>推送到草稿箱</span>
+          </button>
+
+          <div class="publish-config">
+            <button type="button" class="publish-config-toggle" id="btn-publish-config-toggle">▸ 连接配置</button>
+            <div class="publish-config-body" id="publish-config-body" hidden>
+              <div class="settings-item">
+                <div class="settings-label">推送 API Key</div>
+                <input type="password" class="settings-input" id="push-api-key" placeholder="Worker 的 DRAFT_API_KEY" autocomplete="off">
+              </div>
+              <div class="settings-item">
+                <div class="settings-label">推送端点 URL（留空 = 本站 /api/draft）</div>
+                <input type="text" class="settings-input" id="push-endpoint" placeholder="https://gzh.9ej.com/api/draft" autocomplete="off">
+              </div>
+              <div class="settings-item">
+                <div class="settings-label">AppID / Secret（可选，多公众号穿透）</div>
+                <div class="push-cred-row">
+                  <input type="text" class="settings-input" id="push-appid" placeholder="wx appid（可选）" autocomplete="off">
+                  <input type="password" class="settings-input" id="push-secret" placeholder="wx secret（可选）" autocomplete="off">
+                </div>
+              </div>
+              <div class="publish-history">
+                <div class="settings-label">推送记录（本机最近 5 条）</div>
+                <ul class="publish-history-list" id="publish-history-list"></ul>
               </div>
             </div>
           </div>
