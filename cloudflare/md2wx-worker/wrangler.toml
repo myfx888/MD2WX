@@ -12,7 +12,7 @@ globs = ["**/*.png"]
 [assets]
 directory = "../../web/dist"
 binding = "ASSETS"
-run_worker_first = ["/api/*"]
+run_worker_first = ["/api/*", "/hub/*"]
 
 # /api/convert 公开转换限流：单 IP 每 60 秒最多 60 次
 [[ratelimits]]
@@ -23,7 +23,22 @@ namespace_id = "1002"
   limit = 60
   period = 60
 
+# 作品 Hub：R2 作品桶（键即目录：<分类>/<项目>/<相对路径>）
+[[r2_buckets]]
+binding = "HUB"
+bucket_name = "gzh-hub"
+
+# Hub 登录限流：单 IP 每 60 秒最多 10 次
+[[ratelimits]]
+name = "HUB_LOGIN_LIMITER"
+namespace_id = "1003"
+
+  [ratelimits.simple]
+  limit = 10
+  period = 60
+
 # 密钥一律走 wrangler secret put（本地开发用 .dev.vars，勿提交）：
 #   DRAFT_API_KEY      /api/draft 鉴权 Key；未配置则推送接口直接拒绝（fail-closed）
 #   WECHAT_APPID       微信 appid 兜底（请求体 appid 优先）
 #   WECHAT_APPSECRET   微信 secret 兜底（请求体 secret 优先）
+#   HUB_ADMIN_PASSWORD 作品 Hub 管理密码；未配置则上传/删除直接拒绝（fail-closed）
