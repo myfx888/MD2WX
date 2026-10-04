@@ -1,0 +1,72 @@
+/* 作品 Hub — 原生 CSS，零框架 */
+* { box-sizing: border-box; }
+body {
+  margin: 0; font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #f5f6f8; color: #24292f;
+}
+.hidden { display: none !important; }
+
+.hub-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 14px 24px; background: #fff; border-bottom: 1px solid #e4e7eb;
+  position: sticky; top: 0; z-index: 10;
+}
+.hub-brand { display: flex; align-items: baseline; gap: 10px; }
+.hub-brand h1 { font-size: 18px; margin: 0; }
+.hub-sub { color: #8a919c; font-size: 12px; }
+.hub-back { font-size: 13px; color: #57606a; text-decoration: none; margin-right: 6px; }
+.hub-back:hover { color: #24292f; }
+.hub-actions { display: flex; gap: 10px; align-items: center; }
+.hub-search {
+  width: 220px; padding: 7px 12px; border: 1px solid #d0d7de; border-radius: 8px;
+  font-size: 13px; outline: none; background: #fafbfc;
+}
+.hub-search:focus { border-color: #57606a; background: #fff; }
+.hub-btn {
+  padding: 7px 14px; border: 1px solid #d0d7de; border-radius: 8px; background: #fff;
+  font-size: 13px; cursor: pointer; color: #24292f; text-decoration: none;
+}
+.hub-btn:hover { background: #f3f4f6; }
+.hub-btn.primary { background: #24292f; color: #fff; border-color: #24292f; }
+.hub-btn.primary:hover { background: #3c444d; }
+.hub-btn.danger { color: #cf222e; border-color: #cf222e33; }
+.hub-btn.danger:hover { background: #cf222e0d; }
+
+.hub-cats { display: flex; gap: 8px; flex-wrap: wrap; padding: 16px 24px 0; }
+.hub-cat-chip {
+  padding: 5px 14px; border-radius: 999px; border: 1px solid #d0d7de; background: #fff;
+  font-size: 13px; cursor: pointer;
+}
+.hub-cat-chip.active { background: #24292f; color: #fff; border-color: #24292f; }
+
+.hub-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px; padding: 20px 24px 48px;
+}
+.hub-card {
+  background: #fff; border: 1px solid #e4e7eb; border-radius: 12px; padding: 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  transition: box-shadow .15s ease, transform .15s ease;
+}
+.hub-card:hover { box-shadow: 0 6px 18px rgba(140,150,170,.18); transform: translateY(-2px); }
+.hub-card-name { font-size: 15px; font-weight: 600; word-break: break-all; }
+.hub-card-cat { font-size: 12px; color: #57606a; }
+.hub-card-meta { font-size: 12px; color: #8a919c; }
+.hub-card-actions { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.hub-empty { grid-column: 1/-1; text-align: center; color: #8a919c; padding: 60px 0; }
+
+.hub-dialog { border: none; border-radius: 12px; padding: 24px; min-width: 300px; }
+.hub-dialog::backdrop { background: rgba(20,24,30,.45); }
+.hub-dialog h2 { font-size: 16px; margin: 0 0 12px; }
+.hub-dialog input {
+  width: 100%; padding: 8px 12px; border: 1px solid #d0d7de; border-radius: 8px;
+  font-size: 14px; margin-bottom: 8px;
+}
+.hub-dialog menu { display: flex; gap: 8px; justify-content: flex-end; padding: 0; margin: 8px 0 0; }
+.hub-error { color: #cf222e; font-size: 12px; margin: 0 0 6px; }
+
+@media (max-width: 640px) {
+  .hub-header { flex-wrap: wrap; padding: 12px 16px; }
+  .hub-search { width: 100%; }
+  .hub-grid { padding: 16px; }
+}

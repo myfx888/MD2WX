@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>作品 Hub - HTML 原型与站点聚合展示</title>
+  <meta name="description" content="静态 HTML 报告、可视化大屏与前端 Demo 的聚合展示与沉浸式预览">
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="alternate icon" type="image/png" href="./favicon.png">
+  <link rel="stylesheet" href="./src/hub/hub.css">
+</head>
+<body>
+  <header class="hub-header">
+    <div class="hub-brand">
+      <a class="hub-back" href="./index.html" title="返回 MD2WX Studio">← Studio</a>
+      <h1>作品 Hub</h1>
+      <span class="hub-sub">HTML 原型与站点聚合展示</span>
+    </div>
+    <div class="hub-actions">
+      <input id="hub-search" class="hub-search" type="search" placeholder="搜索项目 / 分类…" autocomplete="off">
+      <button id="btn-hub-upload" class="hub-btn primary hidden" type="button">上传作品</button>
+      <button id="btn-hub-auth" class="hub-btn" type="button">登录管理</button>
+    </div>
+  </header>
+
+  <nav id="hub-cats" class="hub-cats"></nav>
+  <main id="hub-grid" class="hub-grid" aria-live="polite"></main>
+
+  <dialog id="dlg-login" class="hub-dialog">
+    <form id="form-login" method="dialog">
+      <h2>管理员登录</h2>
+      <input id="login-password" type="password" placeholder="管理密码" required autocomplete="current-password">
+      <p id="login-error" class="hub-error hidden"></p>
+      <menu><button value="cancel" type="button" id="btn-login-cancel">取消</button>
+        <button class="primary" type="submit">登录</button></menu>
+    </form>
+  </dialog>
+
+  <script type="module" src="./src/hub/hub.js"></script>
+</body>
+</html>
