@@ -393,8 +393,12 @@ function boot() {
       }
     }
   };
-  refreshProjects().catch(() => {
-    $('hub-grid').innerHTML = '<div class="hub-empty">加载失败，请稍后刷新</div>';
+  $('hub-grid').innerHTML = '<div class="hub-empty">加载中…</div>';
+  refreshProjects().catch((err) => {
+    state.authed = !!getToken();
+    $('btn-hub-auth').textContent = state.authed ? '退出登录' : '登录管理';
+    $('btn-hub-upload').classList.toggle('hidden', !state.authed);
+    $('hub-grid').innerHTML = `<div class="hub-empty">${err && err.status === 401 ? '登录已过期，请重新登录管理' : '加载失败，请稍后刷新'}</div>`;
   });
 }
 
