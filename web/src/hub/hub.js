@@ -169,6 +169,168 @@ function bindWorkbench() {
   window.addEventListener('resize', applyViewport);
 }
 
+/* ---------- 上传与删除 ---------- */
+const SEG_RE_LOCAL = /^[\u4e00-\u9fa5A-Za-z0-9_-]+$/;
+
+/** 从 DataTransfer 递归收集文件（保留相对路径）；单一顶层文件夹自动作为项目根 */
+export async function collectFilesFromDataTransfer(dt) {
+  const out = [];
+  const items = [...dt.items].filter((i) => i.kind === 'file');
+  const entries = items.map((i) => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  if (!entries.length) {
+    for (const f of dt.files) out.push({ path: f.name, file: f });
+    return out;
+  }
+  async function walk(entry, base) {
+    if (entry.isFile) {
+      const file = await new Promise((res, rej) => entry.file(res, rej));
+      out.push({ path: base + entry.name, file });
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      for (;;) {
+        const batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+        if (!batch.length) break;
+        for (const e of batch) await walk(e, base + entry.name + '/');
+      }
+    }
+  }
+  for (const e of entries) await walk(e, '');
+  // 拖入单个顶层文件夹：把该文件夹内容作为项目根
+  if (entries.length === 1 && entries[0].isDirectory) {
+    const strip = entries[0].name + '/';
+    for (const f of out) f.path = f.path.startsWith(strip) ? f.path.slice(strip.length) : f.path;
+  }
+  return out.filter((f) => f.path);
+}
+
+function relPathFromFile(file, withDirs) {
+  const rel = file.webkitRelativePath || '';
+  if (withDirs && rel.includes('/')) {
+    const parts = rel.split('/');
+    parts.shift(); // 去掉顶层文件夹名，内容作为项目根
+    return parts.join('/');
+  }
+  return file.name;
+}
+
+function openUploadModal(cat, proj) {
+  const dlg = $('dlg-upload');
+  dlg.classList.add('upload-dialog-wide');
+  const isNew = !cat || !proj;
+  $('upload-title').textContent = isNew ? '上传作品' : `追加文件到「${cat} / ${proj}」`;
+  $('upload-target-fields').classList.toggle('hidden', !isNew);
+  $('upload-cat').value = isNew ? '' : cat;
+  $('upload-proj').value = isNew ? '' : proj;
+  $('cat-options').innerHTML = state.cats.map((c) => `<option value="${esc(c)}">`).join('');
+  picked = [];
+  $('upload-summary').textContent = '';
+  $('upload-error').classList.add('hidden');
+  $('upload-progress').classList.add('hidden');
+  $('upload-bar').style.width = '0';
+  dlg.showModal();
+}
+
+let picked = [];
+
+function mergePicked(base, more) {
+  const map = new Map(base.map((f) => [f.path, f]));
+  for (const f of more) map.set(f.path, f);
+  return [...map.values()];
+}
+
+function bindUpload() {
+  const drop = $('upload-drop');
+  const summarize = () => {
+    $('upload-summary').textContent = picked.length
+      ? `已选 ${picked.length} 个文件：${picked.slice(0, 3).map((f) => f.path).join('、')}${picked.length > 3 ? ' …' : ''}`
+      : '';
+  };
+  ['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => {
+    e.preventDefault(); drop.classList.add('dragover');
+  }));
+  ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => {
+    e.preventDefault(); drop.classList.remove('dragover');
+  }));
+  drop.addEventListener('drop', async (e) => {
+    const got = await collectFilesFromDataTransfer(e.dataTransfer);
+    picked = mergePicked(picked, got); summarize();
+  });
+  $('upload-files').addEventListener('change', (e) => {
+    picked = mergePicked(picked, [...e.target.files].map((f) => ({ path: relPathFromFile(f, false), file: f })));
+    summarize(); e.target.value = '';
+  });
+  $('upload-dir').addEventListener('change', (e) => {
+    picked = mergePicked(picked, [...e.target.files].map((f) => ({ path: relPathFromFile(f, true), file: f })));
+    summarize(); e.target.value = '';
+  });
+  $('btn-upload-cancel').addEventListener('click', () => $('dlg-upload').close());
+  $('form-upload').addEventListener('submit', (e) => { e.preventDefault(); submitUpload(); });
+}
+
+async function submitUpload() {
+  const cat = $('upload-cat').value.trim();
+  const proj = $('upload-proj').value.trim();
+  const isNew = !$('upload-target-fields').classList.contains('hidden');
+  const errEl = $('upload-error');
+  const fail = (msg) => { errEl.textContent = msg; errEl.classList.remove('hidden'); };
+
+  if (isNew) {
+    if (!SEG_RE_LOCAL.test(cat) || cat.length > 24) return fail('分类名非法（中英文/数字/连字符/下划线，≤24字）');
+    if (!SEG_RE_LOCAL.test(proj) || proj.length > 64) return fail('项目名非法（中英文/数字/连字符/下划线，≤64字）');
+  }
+  if (!picked.length) return fail('请先选择或拖入文件');
+  if (picked.some((f) => f.path.includes('..') || f.path.startsWith('/') || f.path.includes('\\'))) {
+    return fail('存在非法文件路径');
+  }
+  errEl.classList.add('hidden');
+  $('upload-progress').classList.remove('hidden');
+  const bar = $('upload-bar'), text = $('upload-progress-text');
+  const target = { cat, proj };
+
+  for (let i = 0; i < picked.length; i++) {
+    const f = picked[i];
+    text.textContent = `${i + 1}/${picked.length}  ${f.path}`;
+    try {
+      await hubApi.putFile(target.cat, target.proj, f.path, f.file);
+    } catch (e1) {
+      if (e1.status === 401) {
+        try {
+          const token = await hubApi.login(prompt('登录已过期，请输入管理密码：') || '');
+          setToken(token); state.authed = true;
+          i--; continue; // 重试当前文件
+        } catch { /* 登录失败落入下方统一错误 */ }
+      }
+      bar.style.width = '0';
+      return fail(`上传「${f.path}」失败：${e1.msg || e1.message || e1}` );
+    }
+    bar.style.width = `${Math.round(((i + 1) / picked.length) * 100)}%`;
+  }
+  $('dlg-upload').close();
+  await refreshProjects();
+  window.hub.openWorkbench(target.cat, target.proj);
+}
+
+function bindDelete() {
+  window.hub.onDeleteFile = async (cat, proj, path) => {
+    if (!confirm(`删除文件 ${cat}/${proj}/${path} ？`)) return;
+    try {
+      await hubApi.deleteFile(cat, proj, path);
+      const files = (await hubApi.listFiles(cat, proj)).files;
+      if (!files.length) {
+        await hubApi.deleteProject(cat, proj);
+        $('dlg-workbench').close();
+        await refreshProjects();
+        return;
+      }
+      renderFileTree(cat, proj, files, null);
+      await refreshProjects();
+    } catch (e) {
+      if (e.status === 401) { state.authed = false; renderGrid(); }
+      alert(e.msg || '删除失败');
+    }
+  };
+}
+
 /* ---------- 登录 ---------- */
 function bindLogin() {
   const dlg = $('dlg-login');
@@ -212,10 +374,24 @@ function boot() {
   }
   // Task 6/7 在此追加：bindUpload() / bindWorkbench 快捷键
   bindWorkbench();
+  bindUpload();
+  bindDelete();
+  $('btn-hub-upload').addEventListener('click', () => window.hub.openUploadModal(null, null));
   window.hub.openWorkbench = openWorkbench;
+  window.hub.openUploadModal = openUploadModal;
   window.hub.onCardAction = (act, cat, proj) => {
     if (act === 'preview') openWorkbench(cat, proj);
-    if (act === 'edit' || act === 'del') alert('管理功能在下一任务开放');
+    else if (act === 'edit') openUploadModal(cat, proj);
+    else if (act === 'del') {
+      if (confirm(`删除项目「${cat} / ${proj}」的全部文件？此操作不可恢复。`)) {
+        hubApi.deleteProject(cat, proj)
+          .then(refreshProjects)
+          .catch((e) => {
+            if (e.status === 401) { state.authed = false; renderGrid(); }
+            alert(e.msg || '删除失败');
+          });
+      }
+    }
   };
   refreshProjects().catch(() => {
     $('hub-grid').innerHTML = '<div class="hub-empty">加载失败，请稍后刷新</div>';

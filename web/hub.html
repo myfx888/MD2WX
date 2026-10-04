@@ -68,6 +68,38 @@
     </div>
   </dialog>
 
+  <dialog id="dlg-upload" class="hub-dialog">
+    <form id="form-upload">
+      <h2 id="upload-title">上传作品</h2>
+      <div id="upload-target-fields">
+        <label class="upload-label">分类
+          <input id="upload-cat" list="cat-options" maxlength="24" placeholder="选择或新建分类（≤24字）" required>
+          <datalist id="cat-options"></datalist>
+        </label>
+        <label class="upload-label">项目名
+          <input id="upload-proj" maxlength="64" placeholder="项目名（≤64字）" required>
+        </label>
+      </div>
+      <div id="upload-drop" class="upload-drop">
+        <p>拖拽<strong>整个站点文件夹</strong>或 HTML 文件到此处</p>
+        <p class="upload-alt">或
+          <label class="hub-btn" for="upload-files">选择文件<input id="upload-files" type="file" multiple class="hidden"></label>
+          <label class="hub-btn" for="upload-dir">选择文件夹<input id="upload-dir" type="file" webkitdirectory class="hidden"></label>
+        </p>
+      </div>
+      <p id="upload-summary" class="upload-summary"></p>
+      <div class="upload-progress hidden" id="upload-progress">
+        <div class="upload-progress-bar"><div id="upload-bar"></div></div>
+        <span id="upload-progress-text"></span>
+      </div>
+      <p id="upload-error" class="hub-error hidden"></p>
+      <menu>
+        <button type="button" id="btn-upload-cancel">取消</button>
+        <button type="submit" class="primary" id="btn-upload-submit">开始上传</button>
+      </menu>
+    </form>
+  </dialog>
+
   <script type="module" src="./src/hub/hub.js"></script>
 </body>
 </html>
