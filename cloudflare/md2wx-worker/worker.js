@@ -249,13 +249,67 @@ export async function getListCache(origin) {
 }
 export async function putListCache(origin, response) {
   if (typeof caches === 'undefined') return;
-  const copy = new Response(response.body, response);
+  const copy = new Response(await response.arrayBuffer(), response);
   copy.headers.set('Cache-Control', `max-age=${HUB_CACHE_TTL}`);
   await caches.default.put(hubCacheKey(origin), copy);
 }
 export async function clearListCache(origin) {
   if (typeof caches === 'undefined') return;
   await caches.default.delete(hubCacheKey(origin));
+}
+
+const HUB_CONTENT_TYPES = {
+  html: 'text/html; charset=utf-8', css: 'text/css; charset=utf-8',
+  js: 'text/javascript; charset=utf-8', mjs: 'text/javascript; charset=utf-8',
+  json: 'application/json', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+  gif: 'image/gif', svg: 'image/svg+xml', webp: 'image/webp', ico: 'image/x-icon',
+  txt: 'text/plain; charset=utf-8', md: 'text/plain; charset=utf-8',
+  woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf', otf: 'font/otf',
+  mp4: 'video/mp4', webm: 'video/webm', pdf: 'application/pdf',
+  xml: 'application/xml', csv: 'text/csv',
+};
+
+function hubNotFoundPage() {
+  return new Response(
+    '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>页面不存在</title></head>' +
+    '<body style="font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0">' +
+    '<div style="text-align:center"><p style="font-size:48px;margin:0">🧭</p>' +
+    '<h1 style="font-size:18px;color:#555">页面不存在</h1>' +
+    '<p style="color:#999"><a href="/hub.html">返回作品 Hub</a></p></div></body></html>',
+    { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } }
+  );
+}
+
+async function serveHubPreview(request, url, env) {
+  if (!env.HUB) return hubNotFoundPage();
+  const parts = url.pathname.slice('/hub/'.length).split('/').map((s) => {
+    try { return decodeURIComponent(s); } catch { return null; }
+  });
+  if (parts.some((s) => s === null)) return hubNotFoundPage();
+  const [cat, proj, ...rest] = parts;
+  if (!validSegment(cat, CAT_MAX) || !validSegment(proj, PROJ_MAX)) return hubNotFoundPage();
+  const prefix = cat + '/' + proj + '/';
+
+  if (!rest.length || !rest.join('')) {
+    const all = await env.HUB.list({ prefix });
+    const entry = findEntryHtml(all.objects, prefix);
+    if (!entry) return hubNotFoundPage();
+    const loc = '/hub/' + encodeURIComponent(cat) + '/' + encodeURIComponent(proj) + '/' + entry.split('/').map(encodeURIComponent).join('/');
+    return new Response(null, { status: 302, headers: { Location: loc } });
+  }
+
+  const filePath = rest.join('/');
+  if (!validFilePath(filePath)) return hubNotFoundPage();
+  const obj = await env.HUB.get(prefix + filePath);
+  if (!obj) return hubNotFoundPage();
+
+  const ext = (filePath.split('.').pop() || '').toLowerCase();
+  const headers = {
+    'Content-Type': HUB_CONTENT_TYPES[ext] || 'application/octet-stream',
+    'Cache-Control': ext === 'html' ? 'public, max-age=300' : 'public, max-age=86400',
+  };
+  if (request.method === 'HEAD') return new Response(null, { status: 200, headers });
+  return new Response(await obj.arrayBuffer(), { status: 200, headers });
 }
 
 function normalizeDraftSource(body) {
@@ -357,7 +411,7 @@ export default {
       if (cached) return cached;
       const categories = await listProjects(env);
       const resp = json({ code: 0, categories });
-      await putListCache(url.origin, resp);
+      await putListCache(url.origin, resp.clone());
       return resp;
     }
 
@@ -401,6 +455,10 @@ export default {
         await clearListCache(url.origin);
         return json({ code: 0, deleted });
       }
+    }
+
+    if ((request.method === 'GET' || request.method === 'HEAD') && url.pathname.startsWith('/hub/')) {
+      return serveHubPreview(request, url, env);
     }
 
     return json({ code: 1, msg: 'not found' }, 404);
