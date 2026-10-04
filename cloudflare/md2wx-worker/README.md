@@ -27,6 +27,7 @@ Markdown 转换 API 与微信草稿箱推送 API。响应契约与旧版单文�
 
 - `DRAFT_API_KEY`：推送鉴权 Key。**未配置时 `/api/draft` 直接拒绝（fail-closed）**。
 - `WECHAT_APPID` / `WECHAT_APPSECRET`：微信凭证兜底；请求体 `appid`/`secret` 可逐请求覆盖（多公众号）。
+- `HUB_ADMIN_PASSWORD`：作品 Hub 管理密码。**未配置时上传/删除直接拒绝（fail-closed）**；依赖 R2 桶 `gzh-hub`（`wrangler r2 bucket create gzh-hub`）。
 
 ## 部署
 

@@ -6,6 +6,7 @@
  *   GET  /api/themes   枚举内置主题
  *   POST /api/convert  公开转换（markdown -> 微信内联 HTML）
  *   POST /api/draft    草稿推送（X-API-Key 或 ?key= 鉴权）
+ *   POST /api/hub/*    作品 Hub 管理（登录/列表/上传/删除）+ GET|HEAD /hub/* 预览回源
  *
  * 非 /api 请求由 wrangler [assets] 直接托管 web/dist，不进入本 Worker 的路由逻辑。
  *
@@ -18,6 +19,11 @@
 import { markdownToWechatHtml, parseFrontmatter } from '../../web/src/core/parser.js';
 import { BUILTIN_THEMES, DEFAULT_THEME_ID, listThemes } from '../../web/src/core/themes.js';
 import defaultCoverPng from './assets/default-cover.png';
+import { signToken, verifyToken } from './hub-auth.js';
+import {
+  validSegment, validFilePath, findEntryHtml, listProjects, listFiles,
+  putFile, deleteFile, deleteProject, CAT_MAX, PROJ_MAX,
+} from './hub-store.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -218,6 +224,94 @@ export function __resetTokenCache() {
   tokenCache.clear();
 }
 
+// ============================== 作品 Hub 辅助 ==============================
+async function enforceHubLoginRateLimit(request, env) {
+  const limiter = env.HUB_LOGIN_LIMITER;
+  if (!limiter || typeof limiter.limit !== 'function') return null;
+  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+  const { success } = await limiter.limit({ key: `hublogin:${ip}` });
+  return success ? null : true; // true = 已限流（文案统一走 401，防探测）
+}
+
+async function requireHubAuth(request, env) {
+  if (!env.HUB_ADMIN_PASSWORD) return json({ code: 1, msg: '服务端未配置 HUB_ADMIN_PASSWORD，拒绝写入' }, 500);
+  const provided = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  const ok = await verifyToken(provided, env.HUB_ADMIN_PASSWORD);
+  return ok ? null : json({ code: 1, msg: '未授权' }, 401);
+}
+
+// 列表缓存：单一合成键，TTL 60s，写操作后由路由层清除（Node 测试环境无 caches，自动跳过）
+const HUB_CACHE_TTL = 60;
+const hubCacheKey = (origin) => new Request(origin + '/__hubcache__/projects');
+export async function getListCache(origin) {
+  if (typeof caches === 'undefined') return null;
+  return await caches.default.match(hubCacheKey(origin));
+}
+export async function putListCache(origin, response) {
+  if (typeof caches === 'undefined') return;
+  const copy = new Response(await response.arrayBuffer(), response);
+  copy.headers.set('Cache-Control', `max-age=${HUB_CACHE_TTL}`);
+  await caches.default.put(hubCacheKey(origin), copy);
+}
+export async function clearListCache(origin) {
+  if (typeof caches === 'undefined') return;
+  await caches.default.delete(hubCacheKey(origin));
+}
+
+const HUB_CONTENT_TYPES = {
+  html: 'text/html; charset=utf-8', css: 'text/css; charset=utf-8',
+  js: 'text/javascript; charset=utf-8', mjs: 'text/javascript; charset=utf-8',
+  json: 'application/json', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+  gif: 'image/gif', svg: 'image/svg+xml', webp: 'image/webp', ico: 'image/x-icon',
+  txt: 'text/plain; charset=utf-8', md: 'text/plain; charset=utf-8',
+  woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf', otf: 'font/otf',
+  mp4: 'video/mp4', webm: 'video/webm', pdf: 'application/pdf',
+  xml: 'application/xml', csv: 'text/csv',
+};
+
+function hubNotFoundPage() {
+  return new Response(
+    '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>页面不存在</title></head>' +
+    '<body style="font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0">' +
+    '<div style="text-align:center"><p style="font-size:48px;margin:0">🧭</p>' +
+    '<h1 style="font-size:18px;color:#555">页面不存在</h1>' +
+    '<p style="color:#999"><a href="/hub.html">返回作品 Hub</a></p></div></body></html>',
+    { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } }
+  );
+}
+
+async function serveHubPreview(request, url, env) {
+  if (!env.HUB) return hubNotFoundPage();
+  const parts = url.pathname.slice('/hub/'.length).split('/').map((s) => {
+    try { return decodeURIComponent(s); } catch { return null; }
+  });
+  if (parts.some((s) => s === null)) return hubNotFoundPage();
+  const [cat, proj, ...rest] = parts;
+  if (!validSegment(cat, CAT_MAX) || !validSegment(proj, PROJ_MAX)) return hubNotFoundPage();
+  const prefix = cat + '/' + proj + '/';
+
+  if (!rest.length || !rest.join('')) {
+    const all = await env.HUB.list({ prefix });
+    const entry = findEntryHtml(all.objects, prefix);
+    if (!entry) return hubNotFoundPage();
+    const loc = '/hub/' + encodeURIComponent(cat) + '/' + encodeURIComponent(proj) + '/' + entry.split('/').map(encodeURIComponent).join('/');
+    return new Response(null, { status: 302, headers: { Location: loc } });
+  }
+
+  const filePath = rest.join('/');
+  if (!validFilePath(filePath)) return hubNotFoundPage();
+  const obj = await env.HUB.get(prefix + filePath);
+  if (!obj) return hubNotFoundPage();
+
+  const ext = (filePath.split('.').pop() || '').toLowerCase();
+  const headers = {
+    'Content-Type': HUB_CONTENT_TYPES[ext] || 'application/octet-stream',
+    'Cache-Control': ext === 'html' ? 'public, max-age=300' : 'public, max-age=86400',
+  };
+  if (request.method === 'HEAD') return new Response(null, { status: 200, headers });
+  return new Response(await obj.arrayBuffer(), { status: 200, headers });
+}
+
 function normalizeDraftSource(body) {
   if (typeof body.markdown === 'string' && body.markdown.trim()) {
     const converted = buildConvertResult(body);
@@ -294,6 +388,77 @@ export default {
       let body;
       try { body = await request.json(); } catch { return json({ code: 1, msg: 'invalid json' }, 400); }
       return handleDraft(request, body, env);
+    }
+
+    // ============================== 作品 Hub ==============================
+    const hubLogin = url.pathname === '/api/hub/login';
+    const hubFiles = url.pathname.match(/^\/api\/hub\/projects\/([^/]+)\/([^/]+)\/files(?:\/(.+))?$/);
+    const hubProj = url.pathname.match(/^\/api\/hub\/projects\/([^/]+)\/([^/]+)$/);
+
+    if (request.method === 'POST' && hubLogin) {
+      const limited = await enforceHubLoginRateLimit(request, env);
+      if (limited) return json({ code: 1, msg: '密码错误或请求过于频繁' }, 401);
+      const password = env.HUB_ADMIN_PASSWORD || '';
+      if (!password) return json({ code: 1, msg: '服务端未配置 HUB_ADMIN_PASSWORD' }, 500);
+      let body;
+      try { body = await request.json(); } catch { return json({ code: 1, msg: 'invalid json' }, 400); }
+      if (body.password !== password) return json({ code: 1, msg: '密码错误或请求过于频繁' }, 401);
+      return json({ code: 0, token: await signToken(password) });
+    }
+
+    if (request.method === 'GET' && url.pathname === '/api/hub/projects') {
+      const cached = await getListCache(url.origin);
+      if (cached) return cached;
+      const categories = await listProjects(env);
+      const resp = json({ code: 0, categories });
+      await putListCache(url.origin, resp.clone());
+      return resp;
+    }
+
+    if (hubFiles || hubProj) {
+      const cat = decodeURIComponent((hubFiles || hubProj)[1]);
+      const proj = decodeURIComponent((hubFiles || hubProj)[2]);
+      if (!validSegment(cat, CAT_MAX) || !validSegment(proj, PROJ_MAX)) {
+        return json({ code: 1, msg: '分类或项目名非法' }, 400);
+      }
+      const filePath = hubFiles && hubFiles[3] ? decodeURIComponent(hubFiles[3]) : null;
+      if (hubFiles && hubFiles[3] !== undefined && (filePath === null || !validFilePath(filePath))) {
+        return json({ code: 1, msg: '文件路径非法' }, 400);
+      }
+
+      if (request.method === 'GET' && hubFiles) {
+        return json({ code: 0, files: await listFiles(env, cat, proj) });
+      }
+
+      const authFail = await requireHubAuth(request, env);
+      if (authFail) return authFail;
+
+      if (request.method === 'PUT' && hubFiles) {
+        if (filePath === null) return json({ code: 1, msg: '文件路径非法' }, 400);
+        const len = Number(request.headers.get('content-length') || 0);
+        if (len > 95 * 1024 * 1024) return json({ code: 1, msg: '单文件上限 95MB' }, 413);
+        await putFile(env, cat, proj, filePath, await request.arrayBuffer());
+        await clearListCache(url.origin);
+        return json({ code: 0 });
+      }
+
+      if (request.method === 'DELETE' && hubFiles) {
+        if (filePath === null) return json({ code: 1, msg: '文件路径非法' }, 400);
+        const ok = await deleteFile(env, cat, proj, filePath);
+        if (!ok) return json({ code: 1, msg: '文件不存在' }, 404);
+        await clearListCache(url.origin);
+        return json({ code: 0 });
+      }
+
+      if (request.method === 'DELETE' && hubProj) {
+        const deleted = await deleteProject(env, cat, proj);
+        await clearListCache(url.origin);
+        return json({ code: 0, deleted });
+      }
+    }
+
+    if ((request.method === 'GET' || request.method === 'HEAD') && url.pathname.startsWith('/hub/')) {
+      return serveHubPreview(request, url, env);
     }
 
     return json({ code: 1, msg: 'not found' }, 404);

@@ -1,0 +1,133 @@
+/* 作品 Hub — 原生 CSS，零框架 */
+* { box-sizing: border-box; }
+body {
+  margin: 0; font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #f5f6f8; color: #24292f;
+}
+.hidden { display: none !important; }
+
+.hub-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 14px 24px; background: #fff; border-bottom: 1px solid #e4e7eb;
+  position: sticky; top: 0; z-index: 10;
+}
+.hub-brand { display: flex; align-items: baseline; gap: 10px; }
+.hub-brand h1 { font-size: 18px; margin: 0; }
+.hub-sub { color: #8a919c; font-size: 12px; }
+.hub-back { font-size: 13px; color: #57606a; text-decoration: none; margin-right: 6px; }
+.hub-back:hover { color: #24292f; }
+.hub-actions { display: flex; gap: 10px; align-items: center; }
+.hub-search {
+  width: 220px; padding: 7px 12px; border: 1px solid #d0d7de; border-radius: 8px;
+  font-size: 13px; outline: none; background: #fafbfc;
+}
+.hub-search:focus { border-color: #57606a; background: #fff; }
+.hub-btn {
+  padding: 7px 14px; border: 1px solid #d0d7de; border-radius: 8px; background: #fff;
+  font-size: 13px; cursor: pointer; color: #24292f; text-decoration: none;
+}
+.hub-btn:hover { background: #f3f4f6; }
+.hub-btn.primary { background: #24292f; color: #fff; border-color: #24292f; }
+.hub-btn.primary:hover { background: #3c444d; }
+.hub-btn.danger { color: #cf222e; border-color: #cf222e33; }
+.hub-btn.danger:hover { background: #cf222e0d; }
+
+.hub-cats { display: flex; gap: 8px; flex-wrap: wrap; padding: 16px 24px 0; }
+.hub-cat-chip {
+  padding: 5px 14px; border-radius: 999px; border: 1px solid #d0d7de; background: #fff;
+  font-size: 13px; cursor: pointer;
+}
+.hub-cat-chip.active { background: #24292f; color: #fff; border-color: #24292f; }
+
+.hub-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px; padding: 20px 24px 48px;
+}
+.hub-card {
+  background: #fff; border: 1px solid #e4e7eb; border-radius: 12px; padding: 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  transition: box-shadow .15s ease, transform .15s ease;
+}
+.hub-card:hover { box-shadow: 0 6px 18px rgba(140,150,170,.18); transform: translateY(-2px); }
+.hub-card-name { font-size: 15px; font-weight: 600; word-break: break-all; }
+.hub-card-cat { font-size: 12px; color: #57606a; }
+.hub-card-meta { font-size: 12px; color: #8a919c; }
+.hub-card-actions { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.hub-empty { grid-column: 1/-1; text-align: center; color: #8a919c; padding: 60px 0; }
+.hub-empty { animation: hub-pulse 1.2s ease-in-out infinite; }
+@keyframes hub-pulse { 50% { opacity: .45; } }
+
+.hub-dialog { border: none; border-radius: 12px; padding: 24px; min-width: 300px; }
+.hub-dialog::backdrop { background: rgba(20,24,30,.45); }
+.hub-dialog h2 { font-size: 16px; margin: 0 0 12px; }
+.hub-dialog input {
+  width: 100%; padding: 8px 12px; border: 1px solid #d0d7de; border-radius: 8px;
+  font-size: 14px; margin-bottom: 8px;
+}
+.hub-dialog menu { display: flex; gap: 8px; justify-content: flex-end; padding: 0; margin: 8px 0 0; }
+.hub-error { color: #cf222e; font-size: 12px; margin: 0 0 6px; }
+
+@media (max-width: 640px) {
+  .hub-header { flex-wrap: wrap; padding: 12px 16px; }
+  .hub-search { width: 100%; }
+  .hub-grid { padding: 16px; }
+}
+
+/* ---------- 预览工作台 ---------- */
+.wb-dialog {
+  width: 96vw; height: 94vh; max-width: none; max-height: none;
+  padding: 0; border: none; border-radius: 12px; overflow: hidden;
+}
+.wb-dialog::backdrop { background: rgba(20,24,30,.6); }
+.wb-bar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 10px 14px; background: #24292f; color: #fff;
+}
+.wb-title { display: flex; align-items: baseline; gap: 8px; min-width: 140px; }
+.wb-title strong { font-size: 14px; word-break: break-all; }
+.wb-cat { font-size: 12px; color: #b7bfc7; }
+.wb-views { display: flex; gap: 4px; }
+.wb-views button, .wb-ops button {
+  padding: 5px 10px; font-size: 12px; border: 1px solid #ffffff33; border-radius: 6px;
+  background: transparent; color: #fff; cursor: pointer;
+}
+.wb-views button.active, .wb-views button:hover { background: #ffffff26; }
+.wb-zoom { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #b7bfc7; }
+.wb-zoom input { width: 110px; }
+.wb-ops { margin-left: auto; display: flex; gap: 6px; }
+.wb-ops .wb-close { border-color: transparent; font-size: 14px; }
+.wb-body { display: flex; height: calc(94vh - 47px); }
+.wb-tree {
+  width: 230px; min-width: 230px; overflow: auto; background: #fafbfc;
+  border-right: 1px solid #e4e7eb; padding: 10px; font-size: 13px;
+}
+.wb-tree summary, .wb-tree .wb-file {
+  padding: 4px 6px; border-radius: 6px; cursor: pointer; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px;
+}
+.wb-tree summary:hover, .wb-tree .wb-file:hover { background: #eef0f3; }
+.wb-tree .wb-file.current { background: #dbeafe; }
+.wb-tree .wb-del {
+  margin-left: auto; border: none; background: none; color: #cf222e; cursor: pointer;
+  font-size: 12px; visibility: hidden;
+}
+.wb-tree .wb-file:hover .wb-del { visibility: visible; }
+.wb-stage-wrap { flex: 1; overflow: auto; display: grid; place-items: center; background: #e9ecf0; }
+.wb-stage { transform-origin: center top; box-shadow: 0 4px 24px rgba(0,0,0,.18); background: #fff; }
+.wb-stage iframe { border: none; width: 100%; height: 100%; display: block; }
+
+/* ---------- 上传 ---------- */
+.upload-label { display: block; font-size: 13px; margin-bottom: 8px; }
+.upload-label input { margin-top: 4px; }
+.upload-drop {
+  border: 2px dashed #d0d7de; border-radius: 10px; padding: 22px; text-align: center;
+  font-size: 13px; color: #57606a; margin: 8px 0; transition: border-color .15s ease, background .15s ease;
+}
+.upload-drop.dragover { border-color: #24292f; background: #f6f8fa; }
+.upload-alt { margin: 8px 0 0; }
+.upload-alt .hub-btn { display: inline-block; cursor: pointer; }
+.upload-summary { font-size: 12px; color: #57606a; margin: 4px 0; min-height: 1em; }
+.upload-progress { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.upload-progress-bar { flex: 1; height: 6px; background: #e4e7eb; border-radius: 3px; overflow: hidden; }
+.upload-progress-bar > div { height: 100%; width: 0; background: #24292f; transition: width .2s ease; }
+.upload-dialog-wide { min-width: 460px; }

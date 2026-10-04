@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>作品 Hub - HTML 原型与站点聚合展示</title>
+  <meta name="description" content="静态 HTML 报告、可视化大屏与前端 Demo 的聚合展示与沉浸式预览">
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="alternate icon" type="image/png" href="./favicon.png">
+  <link rel="stylesheet" href="./src/hub/hub.css">
+</head>
+<body>
+  <header class="hub-header">
+    <div class="hub-brand">
+      <a class="hub-back" href="./index.html" title="返回 MD2WX Studio">← Studio</a>
+      <h1>作品 Hub</h1>
+      <span class="hub-sub">HTML 原型与站点聚合展示</span>
+    </div>
+    <div class="hub-actions">
+      <input id="hub-search" class="hub-search" type="search" placeholder="搜索项目 / 分类…" autocomplete="off">
+      <button id="btn-hub-upload" class="hub-btn primary hidden" type="button">上传作品</button>
+      <button id="btn-hub-auth" class="hub-btn" type="button">登录管理</button>
+    </div>
+  </header>
+
+  <nav id="hub-cats" class="hub-cats"></nav>
+  <main id="hub-grid" class="hub-grid" aria-live="polite"></main>
+
+  <dialog id="dlg-login" class="hub-dialog">
+    <form id="form-login" method="dialog">
+      <h2>管理员登录</h2>
+      <input id="login-password" type="password" placeholder="管理密码" required autocomplete="current-password">
+      <p id="login-error" class="hub-error hidden"></p>
+      <menu><button value="cancel" type="button" id="btn-login-cancel">取消</button>
+        <button class="primary" type="submit">登录</button></menu>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-workbench" class="wb-dialog">
+    <header class="wb-bar">
+      <div class="wb-title">
+        <strong id="wb-name"></strong>
+        <span id="wb-cat" class="wb-cat"></span>
+      </div>
+      <div class="wb-views" id="wb-views">
+        <button data-vp="fit" class="active">铺满</button>
+        <button data-vp="1440x900">1440×900</button>
+        <button data-vp="1920x1080">1920×1080</button>
+        <button data-vp="375x812">375×812</button>
+      </div>
+      <div class="wb-zoom">
+        <input id="wb-zoom-range" type="range" min="20" max="150" value="100" aria-label="缩放比例">
+        <span id="wb-zoom-val">100%</span>
+      </div>
+      <div class="wb-ops">
+        <button id="wb-refresh" title="无损刷新">刷新</button>
+        <button id="wb-newtab" title="新窗口打开">新窗口</button>
+        <button id="wb-close" class="wb-close" title="关闭">✕</button>
+      </div>
+    </header>
+    <div class="wb-body">
+      <aside id="wb-tree" class="wb-tree"></aside>
+      <div class="wb-stage-wrap" id="wb-stage-wrap">
+        <div class="wb-stage" id="wb-stage">
+          <iframe id="wb-frame" title="作品预览"></iframe>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="dlg-upload" class="hub-dialog">
+    <form id="form-upload">
+      <h2 id="upload-title">上传作品</h2>
+      <div id="upload-target-fields">
+        <label class="upload-label">分类
+          <input id="upload-cat" list="cat-options" maxlength="24" placeholder="选择或新建分类（≤24字）" required>
+          <datalist id="cat-options"></datalist>
+        </label>
+        <label class="upload-label">项目名
+          <input id="upload-proj" maxlength="64" placeholder="项目名（≤64字）" required>
+        </label>
+      </div>
+      <div id="upload-drop" class="upload-drop">
+        <p>拖拽<strong>整个站点文件夹</strong>或 HTML 文件到此处</p>
+        <p class="upload-alt">或
+          <label class="hub-btn" for="upload-files">选择文件<input id="upload-files" type="file" multiple class="hidden"></label>
+          <label class="hub-btn" for="upload-dir">选择文件夹<input id="upload-dir" type="file" webkitdirectory class="hidden"></label>
+        </p>
+      </div>
+      <p id="upload-summary" class="upload-summary"></p>
+      <div class="upload-progress hidden" id="upload-progress">
+        <div class="upload-progress-bar"><div id="upload-bar"></div></div>
+        <span id="upload-progress-text"></span>
+      </div>
+      <p id="upload-error" class="hub-error hidden"></p>
+      <menu>
+        <button type="button" id="btn-upload-cancel">取消</button>
+        <button type="submit" class="primary" id="btn-upload-submit">开始上传</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <script type="module" src="./src/hub/hub.js"></script>
+</body>
+</html>
