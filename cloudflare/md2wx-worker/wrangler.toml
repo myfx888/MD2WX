@@ -2,6 +2,11 @@ name = "gzh"
 main = "worker.js"
 compatibility_date = "2025-06-01"
 
+# 允许 Worker 直接 import PNG（默认封面兜底，import 得到 ArrayBuffer）
+[[rules]]
+type = "Data"
+globs = ["**/*.png"]
+
 # 整站静态资产：部署前先在 web/ 目录执行 npm ci && npm run build 生成 web/dist
 # 风险预案：若 wrangler 拒绝父级相对路径，改用 predeploy 脚本把 web/dist 复制到本目录 assets/ 并将 directory 改为 "assets"
 [assets]

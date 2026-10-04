@@ -17,6 +17,7 @@
 
 import { markdownToWechatHtml, parseFrontmatter } from '../../web/src/core/parser.js';
 import { BUILTIN_THEMES, DEFAULT_THEME_ID, listThemes } from '../../web/src/core/themes.js';
+import defaultCoverPng from './assets/default-cover.png';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -86,6 +87,15 @@ function formDataFile(field, blob, filename) {
   const fd = new FormData();
   fd.append(field, blob, filename);
   return fd;
+}
+
+/**
+ * 主题默认封面兜底（assets/default-cover.png，与 DEFAULT_THEME_ID 同源设计）。
+ * 测试打包走 esbuild dataurl loader（字符串 data URI），生产打包走 wrangler Data rule（ArrayBuffer）。
+ */
+function defaultCoverBlob() {
+  if (typeof defaultCoverPng === 'string') return dataUriToBlob(defaultCoverPng);
+  return new Blob([defaultCoverPng], { type: 'image/png' });
 }
 
 export class WeChat {
@@ -169,12 +179,16 @@ export class WeChat {
     return html;
   }
 
+  /**
+   * 封面解析：cover 参数 -> 正文第一张图 -> 主题默认封面兜底。
+   * 返回 { media_id, source }，source ∈ 'provided' | 'article' | 'default'
+   */
   async resolveCover(cover, content) {
     if (cover) {
       let blob = null;
       if (cover.startsWith('data:')) blob = dataUriToBlob(cover);
       else if (/^https?:\/\//.test(cover)) blob = await this.urlToBlob(cover);
-      if (blob) return await this.uploadMaterial(blob);
+      if (blob) return { media_id: await this.uploadMaterial(blob), source: 'provided' };
     }
     const m = /<img\s+[^>]*?src="([^"]+)"[^>]*?>/i.exec(content);
     if (m) {
@@ -182,9 +196,9 @@ export class WeChat {
       let blob = null;
       if (src.startsWith('data:')) blob = dataUriToBlob(src);
       else if (/^https?:\/\//.test(src)) blob = await this.urlToBlob(src);
-      if (blob) return await this.uploadMaterial(blob);
+      if (blob) return { media_id: await this.uploadMaterial(blob), source: 'article' };
     }
-    return null;
+    return { media_id: await this.uploadMaterial(defaultCoverBlob()), source: 'default' };
   }
 
   async addDraft(article) {
@@ -235,19 +249,18 @@ async function handleDraft(request, body, env) {
   const wx = new WeChat(appid, secret, env.__WX_FETCH || globalThis.fetch);
   try {
     const finalContent = await wx.localizeImages(source.content);
-    const thumb_media_id = await wx.resolveCover(body.cover, finalContent);
-    if (!thumb_media_id) return json({ code: 1, msg: '缺少封面图（cover 或正文第一张图都不存在）' }, 400);
+    const coverResult = await wx.resolveCover(body.cover, finalContent);
     const media_id = await wx.addDraft({
       title: source.title,
       author: body.author || '',
       digest: source.digest,
       content: finalContent,
-      thumb_media_id,
+      thumb_media_id: coverResult.media_id,
       content_source_url: body.content_source_url || '',
       need_open_comment: body.need_open_comment ? 1 : 0,
       only_fans_can_comment: body.only_fans_can_comment ? 1 : 0,
     });
-    return json({ code: 0, media_id });
+    return json({ code: 0, media_id, used_default_cover: coverResult.source === 'default' });
   } catch (e) {
     return json({ code: 1, msg: String(e.message || e) }, 500);
   }

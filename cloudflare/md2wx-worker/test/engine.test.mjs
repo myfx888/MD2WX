@@ -221,15 +221,42 @@ describe('POST /api/draft 推送链路（env.__WX_FETCH 注入 mock 微信 API�
     assert.ok(uploadCall, '正文外链图必须经过 uploadimg 换链');
   });
 
-  it('content 形态：无封面且正文无图返回 400 缺少封面', async () => {
+  it('content 形态：无封面且正文无图 -> 服务端默认封面兜底成功', async () => {
+    const wx = mockWxFetch([
+      { match: 'stable_token', body: { access_token: 'TOKEN1' } },
+      { match: 'add_material', body: { media_id: 'MEDIA_DEF' } },
+      { match: 'draft/add', body: { media_id: 'DRAFT_DEF' } },
+    ]);
     const res = await postJson(
       '/api/draft',
       { content: '<section style="x">hi</section>', title: 'T' },
-      DRAFT_ENV,
+      { ...DRAFT_ENV, __WX_FETCH: wx },
       DRAFT_HEADERS
     );
-    assert.equal(res.status, 400);
+    assert.equal(res.status, 200);
     const data = await res.json();
-    assert.ok(data.msg.includes('封面'));
+    assert.equal(data.code, 0);
+    assert.equal(data.media_id, 'DRAFT_DEF');
+    assert.equal(data.used_default_cover, true);
+    const matCall = wx.calls.find((c) => c.url.includes('add_material'));
+    assert.ok(matCall, '兜底时必须上传默认封面素材');
+  });
+
+  it('markdown 形态无图无 cover -> 默认封面兜底', async () => {
+    const wx = mockWxFetch([
+      { match: 'stable_token', body: { access_token: 'TOKEN1' } },
+      { match: 'add_material', body: { media_id: 'MEDIA_DEF' } },
+      { match: 'draft/add', body: { media_id: 'DRAFT_DEF2' } },
+    ]);
+    const res = await postJson(
+      '/api/draft',
+      { markdown: '---\ntitle: 无图文章\n---\n\n# 无图文章\n\n纯文字' },
+      { ...DRAFT_ENV, __WX_FETCH: wx },
+      DRAFT_HEADERS
+    );
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.code, 0);
+    assert.equal(data.used_default_cover, true);
   });
 });

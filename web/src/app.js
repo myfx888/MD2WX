@@ -575,8 +575,8 @@ function initPublishStudio() {
       coverStatus.textContent = '封面来源：正文首图 ✓';
     } else {
       coverThumb.innerHTML = '<div class="publish-cover-empty">暂无封面</div>';
-      coverStatus.className = 'publish-cover-status is-error';
-      coverStatus.textContent = '⚠ 无封面——正文没有图片，微信将拒绝推送。请先在正文插入图片或使用封面工坊封面';
+      coverStatus.className = 'publish-cover-status is-warn';
+      coverStatus.textContent = '⚠ 无封面——推送时服务端将自动使用主题默认封面兜底（也可勾选上方工坊封面）';
     }
   }
 
@@ -644,11 +644,19 @@ function initPublishStudio() {
     let coverDataUrl = '';
     try {
       if (useCoverToggle.checked) {
-        const canvas = renderCoverDirectCanvas(currentThemeId, 'banner', currentCoverMeta || {}, 1);
-        coverDataUrl = canvas.toDataURL('image/png');
+        // renderCoverDirectCanvas 返回 Promise<Blob>（内部 canvas.toBlob），需 await
+        const blob = await renderCoverDirectCanvas(currentThemeId, 'banner', currentCoverMeta || {}, 1);
+        coverDataUrl = await new Promise((resolve, reject) => {
+          const fr = new FileReader();
+          fr.onload = () => resolve(fr.result);
+          fr.onerror = () => reject(new Error('封面 Blob 转 dataURL 失败'));
+          fr.readAsDataURL(blob);
+        });
       }
     } catch (e) {
-      coverDataUrl = ''; // 导出失败回落正文首图
+      // 导出失败必须可见：回落正文首图或服务端默认封面，但用户要知道原因
+      coverDataUrl = '';
+      showToast('封面导出失败，本次推送将不带自定义封面: ' + (e.message || e), 'error');
     }
 
     const payload = buildPublishPayload({
