@@ -499,6 +499,64 @@
       </div>
     </div>
 
+    <!-- Theme Studio -->
+    <div class="cover-modal-overlay" id="theme-studio-overlay" role="dialog" aria-modal="true" aria-labelledby="theme-studio-title">
+      <div class="cover-modal-window theme-studio-window">
+        <div class="cover-modal-header">
+          <div class="cover-header-title-group">
+            <div class="cover-header-icon" id="icon-ts-window"></div>
+            <div class="cover-header-title" id="theme-studio-title">
+              <span>主题工坊</span>
+              <span class="cover-header-badge">可视化微调</span>
+            </div>
+          </div>
+          <button class="cover-modal-close-btn" id="btn-close-theme-studio" type="button" title="关闭 (Esc)">
+            <span id="icon-ts-close"></span>
+          </button>
+        </div>
+        <div class="cover-modal-body theme-studio-body">
+          <div class="ts-layout">
+            <div class="ts-left">
+              <div class="ts-section-title">内置主题（复制为自定义后可编辑）</div>
+              <div class="ts-builtin-list" id="ts-builtin-list"></div>
+              <div class="ts-section-title">我的自定义主题</div>
+              <div class="ts-custom-list" id="ts-custom-list"></div>
+            </div>
+            <div class="ts-right" id="ts-editor" hidden>
+              <div class="ts-section-title" id="ts-editor-title">编辑</div>
+              <div class="ts-field">
+                <label class="settings-label">主题名称</label>
+                <input type="text" class="settings-input" id="ts-name" placeholder="给主题起个名字" autocomplete="off">
+              </div>
+              <div class="ts-field">
+                <label class="settings-label">颜色</label>
+                <div class="ts-color-row" id="ts-color-row"></div>
+              </div>
+              <div class="ts-field">
+                <label class="settings-label">排版</label>
+                <div class="ts-typo-row" id="ts-typo-row"></div>
+                <div class="ts-field" style="margin-top:8px;">
+                  <label class="settings-label">字体栈</label>
+                  <select class="settings-input" id="ts-font-select"></select>
+                </div>
+              </div>
+              <div class="ts-actions">
+                <button class="btn btn-primary" id="btn-ts-save" type="button">保存</button>
+                <button class="btn btn-secondary" id="btn-ts-export" type="button">导出 JSON</button>
+                <button class="btn btn-secondary" id="btn-ts-delete" type="button">删除</button>
+              </div>
+            </div>
+            <div class="ts-preview">
+              <div class="ts-section-title">实时预览</div>
+              <div class="ts-preview-scroll">
+                <div id="ts-preview-target"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Changelog Modal -->
     <div class="cover-modal-overlay" id="changelog-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="changelog-modal-title">
       <div class="changelog-modal-window">

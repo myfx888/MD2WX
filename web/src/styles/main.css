@@ -735,3 +735,192 @@ input:checked + .slider:before {
 .publish-history-list .ph-fail {
   color: #dc2626;
 }
+
+/* 主题工坊（Theme Studio） */
+/* 覆盖 cover-modal 的窗体高度与两列栅格（同发布工坊：双类提升优先级） */
+.cover-modal-window.theme-studio-window {
+  max-width: 980px;
+  width: 94vw;
+  height: auto;
+  max-height: 90vh;
+}
+
+.cover-modal-body.theme-studio-body {
+  display: block;
+  overflow: hidden;
+  padding: 14px 16px 16px;
+}
+
+.ts-layout {
+  display: grid;
+  grid-template-columns: 240px 250px 1fr;
+  gap: 14px;
+  height: 66vh;
+}
+
+.ts-left, .ts-right {
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.ts-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary, #a1a1aa);
+  margin: 8px 0;
+}
+
+.ts-builtin-list, .ts-custom-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.ts-theme-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--border-color, #e4e4e7);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+
+.ts-theme-item:hover {
+  border-color: var(--accent, #2563eb);
+}
+
+.ts-theme-item.active {
+  border-color: var(--accent, #2563eb);
+  background: var(--accent-soft, #eff6ff);
+}
+
+.ts-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.ts-theme-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ts-item-btn {
+  border: none;
+  background: none;
+  color: var(--accent, #2563eb);
+  cursor: pointer;
+  font-size: 11.5px;
+  padding: 2px 4px;
+  flex: 0 0 auto;
+}
+
+.ts-item-btn.is-danger {
+  color: #dc2626;
+}
+
+.ts-field {
+  margin-bottom: 10px;
+}
+
+.ts-color-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+}
+
+.ts-color-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.ts-color-item input[type="color"] {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border-color, #e4e4e7);
+  border-radius: 6px;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.ts-color-item .ts-hex {
+  width: 74px;
+  font-size: 11px;
+  text-transform: lowercase;
+}
+
+.ts-typo-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ts-typo-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.ts-typo-item input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent, #2563eb);
+}
+
+.ts-typo-item .ts-val {
+  min-width: 48px;
+  text-align: right;
+  color: var(--text-secondary, #52525b);
+}
+
+.ts-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.ts-preview {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border-color, #e4e4e7);
+  padding-left: 14px;
+  min-width: 0;
+}
+
+.ts-preview-scroll {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid var(--border-color, #e4e4e7);
+  border-radius: 8px;
+  background: var(--control-bg, #f7f7f8);
+  padding: 10px;
+}
+
+.ts-theme-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary, #52525b);
+  cursor: pointer;
+  padding: 9px 12px;
+}
+
+.ts-theme-entry:hover {
+  background: var(--accent-soft, #eff6ff);
+}
+
+.ts-theme-group-label {
+  font-size: 11px;
+  color: var(--text-tertiary, #a1a1aa);
+  padding: 6px 12px 2px;
+}
