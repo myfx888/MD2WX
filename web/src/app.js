@@ -11,6 +11,10 @@ import { COVER_DIMENSIONS, extractCoverMeta, renderCoverHtml, THEME_COVER_PRESET
 import { domToPngBlob, copyImageToClipboard, downloadImageBlob, renderCoverDirectCanvas } from './core/canvas_exporter.js';
 import { extractPublishMeta, buildPublishPayload, resolvePushConfig, readPushHistory, recordPush, countWords } from './core/publish.js';
 import {
+  listCustomThemes, getCustomTheme, saveCustomTheme, deleteCustomTheme,
+  exportCustomTheme, importCustomTheme, CUSTOM_COLORS, CUSTOM_TYPOGRAPHY, FONT_STACKS,
+} from './core/customThemes.js';
+import {
   isImageHostConfigured,
   uploadImageFile,
   validateImageFile,
@@ -61,6 +65,8 @@ def deploy_article(markdown_path: str, theme: str = "vintage-news"):
 
 // App State
 let currentThemeId = localStorage.getItem('md2wx_theme') || DEFAULT_THEME_ID;
+// 当前选中的自定义主题差异覆盖（非 custom 主题时为 null）
+let currentCustomOverride = null;
 let currentViewMode = localStorage.getItem('md2wx_view_mode') || 'mobile';
 let currentFontSize = localStorage.getItem('md2wx_font_size') || '15.5px';
 let currentLineHeight = localStorage.getItem('md2wx_line_height') || '1.8';
@@ -121,6 +127,9 @@ function initIcons() {
   setIcon('#icon-publish-window', 'send');
   setIcon('#icon-publish-close', 'x');
   setIcon('#icon-publish-push', 'send');
+  setIcon('#icon-ts-window', 'palette');
+  setIcon('#icon-ts-close', 'x');
+  setIcon('#icon-ts-entry', 'palette');
   setIcon('#icon-bold', 'bold');
   setIcon('#icon-italic', 'italic');
   setIcon('#icon-h1', 'heading1');
@@ -273,17 +282,71 @@ function renderThemeDropdown() {
 
     themeDropdownMenu.appendChild(item);
   }
+
+  // 自定义主题分组
+  const customs = listCustomThemes();
+  if (customs.length) {
+    const label = document.createElement('div');
+    label.className = 'ts-theme-group-label';
+    label.textContent = '自定义主题';
+    themeDropdownMenu.appendChild(label);
+    for (const c of customs) {
+      const item = document.createElement('div');
+      item.className = `theme-option-item ${c.id === currentThemeId ? 'active' : ''}`;
+      item.dataset.themeId = c.id;
+      const full = getCustomTheme(c.id);
+      const accent = full?.override?.colors?.accent || BUILTIN_THEMES[c.baseId]?.colors?.accent || '#2563eb';
+      item.innerHTML = `
+        <div class="theme-info">
+          <div class="theme-name">
+            <span style="width: 8px; height: 8px; border-radius: 50%; background: ${accent}; display: inline-block;"></span>
+            <span>${c.name}</span>
+          </div>
+        </div>
+        <span style="font-size: 10px; color: #8a8a8a;">自定义</span>
+      `;
+      item.addEventListener('click', () => {
+        selectTheme(c.id);
+        themeDropdownMenu.classList.remove('show');
+      });
+      themeDropdownMenu.appendChild(item);
+    }
+  }
+
+  // 主题工坊入口
+  const entry = document.createElement('div');
+  entry.className = 'ts-theme-entry';
+  entry.innerHTML = `<span id="icon-ts-entry"></span><span>自定义主题…</span>`;
+  entry.addEventListener('click', () => {
+    themeDropdownMenu.classList.remove('show');
+    document.getElementById('theme-studio-overlay').classList.add('active');
+    window.__renderThemeStudio && window.__renderThemeStudio();
+  });
+  themeDropdownMenu.appendChild(entry);
+}
+
+/**
+ * 解析当前主题：custom- 前缀映射为 { baseId, override }，否则 override 为 null
+ */
+function effectiveThemeInfo() {
+  if (currentThemeId && currentThemeId.startsWith('custom-')) {
+    const t = getCustomTheme(currentThemeId);
+    if (t) return { themeId: t.baseId, override: t.override };
+  }
+  return { themeId: currentThemeId, override: null };
 }
 
 /**
  * 切换并激活主题
  */
 function selectTheme(themeId) {
-  if (!BUILTIN_THEMES[themeId]) return;
+  if (!BUILTIN_THEMES[themeId] && !themeId.startsWith('custom-')) return;
   currentThemeId = themeId;
   localStorage.setItem('md2wx_theme', themeId);
+  currentCustomOverride = effectiveThemeInfo().override;
 
-  const theme = getTheme(themeId);
+  const eff = effectiveThemeInfo();
+  const theme = getTheme(eff.themeId, eff.override);
   currentThemeNameEl.textContent = theme.name.split('(')[0].trim();
   currentThemeDotEl.style.backgroundColor = theme.accent;
   currentThemeDotEl.style.color = theme.accent;
@@ -396,7 +459,8 @@ function renderPreview() {
   wechatNavTitle.textContent = articleTitle || '文章详情';
 
   // 转换为微信专用的纯 Inline CSS HTML (注入排版微调参数、文末脚注设置与顶部封面卡片)
-  currentHtmlOutput = markdownToWechatHtml(body, currentThemeId, null, {
+  const eff = effectiveThemeInfo();
+  currentHtmlOutput = markdownToWechatHtml(body, eff.themeId, eff.override, {
     fontSize: currentFontSize,
     lineHeight: currentLineHeight,
     linkToFootnote: enableFootnotes,
@@ -1376,6 +1440,282 @@ function initCoverStudio() {
 }
 
 /**
+ * 主题工坊：内置主题复制为自定义 -> 可视化微调 -> 保存/导出/导入/删除
+ */
+function initThemeStudio() {
+  const overlay = document.getElementById('theme-studio-overlay');
+  const btnClose = document.getElementById('btn-close-theme-studio');
+  const builtinList = document.getElementById('ts-builtin-list');
+  const customList = document.getElementById('ts-custom-list');
+  const editor = document.getElementById('ts-editor');
+  const editorTitle = document.getElementById('ts-editor-title');
+  const nameInput = document.getElementById('ts-name');
+  const colorRow = document.getElementById('ts-color-row');
+  const typoRow = document.getElementById('ts-typo-row');
+  const fontSelect = document.getElementById('ts-font-select');
+  const previewTarget = document.getElementById('ts-preview-target');
+  const btnSave = document.getElementById('btn-ts-save');
+  const btnExport = document.getElementById('btn-ts-export');
+  const btnDelete = document.getElementById('btn-ts-delete');
+
+  if (!overlay || !builtinList) return;
+
+  // 工坊内编辑态（与全局 currentThemeId 解耦）
+  let editing = null; // { id, baseId, name, override }
+
+  const PREVIEW_SAMPLE = [
+    '# 标题层级演示',
+    '',
+    '## 二级分区：核心观点',
+    '',
+    '> 这是一段引用导读块，用于检查引言底色与左边条。',
+    '',
+    '正文段落：**加粗强调** 与 `行内代码`，以及 [链接文字](https://example.com) 的脚注转换效果。',
+    '',
+    '```python',
+    'def hello():',
+    '    return "code block"',
+    '```',
+    '',
+    '| 模块 | 说明 |',
+    '| :--- | :--- |',
+    '| Parser | 解析引擎 |',
+    '| Theme | 主题系统 |',
+  ].join('\n');
+
+  // 构建编辑面板控件（一次性）
+  const colorInputs = {};
+  for (const c of CUSTOM_COLORS) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ts-color-item';
+    wrap.innerHTML = `<input type="color" data-key="${c.key}"><input type="text" class="settings-input ts-hex" data-key="${c.key}" placeholder="${c.label}"><span>${c.label}</span>`;
+    colorRow.appendChild(wrap);
+    const picker = wrap.querySelector('input[type="color"]');
+    const hex = wrap.querySelector('.ts-hex');
+    picker.addEventListener('input', () => { hex.value = picker.value; applyLocal(c.key, 'colors', picker.value); });
+    hex.addEventListener('change', () => { if (/^#[0-9a-fA-F]{6}$/.test(hex.value)) { picker.value = hex.value; applyLocal(c.key, 'colors', hex.value); } });
+    colorInputs[c.key] = { picker, hex };
+  }
+  const typoInputs = {};
+  for (const t of CUSTOM_TYPOGRAPHY) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ts-typo-item';
+    wrap.innerHTML = `<span>${t.label}</span><input type="range" min="${t.min}" max="${t.max}" step="${t.step}" data-key="${t.key}"><span class="ts-val"></span>`;
+    typoRow.appendChild(wrap);
+    const range = wrap.querySelector('input[type="range"]');
+    const val = wrap.querySelector('.ts-val');
+    range.addEventListener('input', () => { val.textContent = range.value + t.unit; applyLocal(t.key, 'typography', range.value + t.unit); });
+    typoInputs[t.key] = { range, val };
+  }
+  for (const f of FONT_STACKS) {
+    const opt = document.createElement('option');
+    opt.value = f.id;
+    opt.textContent = f.label;
+    fontSelect.appendChild(opt);
+  }
+  fontSelect.addEventListener('change', () => {
+    const f = FONT_STACKS.find((x) => x.id === fontSelect.value);
+    if (f) applyLocal('font_family', 'typography', f.value);
+  });
+
+  function applyLocal(key, group, value) {
+    if (!editing) return;
+    editing.override[group] = editing.override[group] || {};
+    editing.override[group][key] = value;
+    renderPreviewPane();
+  }
+
+  function renderPreviewPane() {
+    previewTarget.innerHTML = markdownToWechatHtml(PREVIEW_SAMPLE, editing.baseId, editing.override, { linkToFootnote: false, insertCover: false });
+  }
+
+  function fillEditor() {
+    editorTitle.textContent = `编辑：${editing.name}（基于 ${BUILTIN_THEMES[editing.baseId]?.name || editing.baseId}）`;
+    nameInput.value = editing.name;
+    const baseTheme = getTheme(editing.baseId);
+    for (const c of CUSTOM_COLORS) {
+      const cur = editing.override.colors?.[c.key] || baseTheme.colors?.[c.key] || '#000000';
+      colorInputs[c.key].picker.value = cur;
+      colorInputs[c.key].hex.value = cur;
+    }
+    for (const t of CUSTOM_TYPOGRAPHY) {
+      const cur = editing.override.typography?.[t.key] || baseTheme.typography?.[t.key] || '';
+      const num = parseFloat(cur) || t.min;
+      typoInputs[t.key].range.value = num;
+      typoInputs[t.key].val.textContent = cur + (CUSTOM_TYPOGRAPHY.find((x) => x.key === t.key).unit || '');
+    }
+    const ff = editing.override.typography?.font_family || baseTheme.typography?.font_family || '';
+    const match = FONT_STACKS.find((f) => f.value === ff);
+    fontSelect.value = match ? match.id : 'system';
+    renderPreviewPane();
+  }
+
+  function renderLists() {
+    builtinList.innerHTML = '';
+    for (const t of Object.values(BUILTIN_THEMES)) {
+      const item = document.createElement('div');
+      item.className = 'ts-theme-item';
+      item.innerHTML = `<span class="ts-dot" style="background:${t.colors?.accent || '#2563eb'}"></span><span class="ts-theme-name">${t.name}</span><button class="ts-item-btn" type="button">复制为自定义</button>`;
+      item.querySelector('button').addEventListener('click', (e) => {
+        e.stopPropagation();
+        editing = { id: null, baseId: t.id, name: t.name.split('(')[0].trim() + ' 自定义', override: {} };
+        editor.hidden = false;
+        fillEditor();
+      });
+      builtinList.appendChild(item);
+    }
+    customList.innerHTML = '';
+    const customs = listCustomThemes();
+    if (!customs.length) {
+      customList.innerHTML = '<div style="color:#a1a1aa;font-size:12px;">还没有自定义主题——点上方内置主题的「复制为自定义」</div>';
+    }
+    for (const c of customs) {
+      const full = getCustomTheme(c.id);
+      const baseAccent = BUILTIN_THEMES[c.baseId]?.colors?.accent || '#2563eb';
+      const item = document.createElement('div');
+      item.className = `ts-theme-item ${c.id === currentThemeId ? 'active' : ''}`;
+      item.innerHTML = `<span class="ts-dot" style="background:${full.override.colors?.accent || baseAccent}"></span><span class="ts-theme-name">${c.name}</span><button class="ts-item-btn" type="button">编辑</button><button class="ts-item-btn" type="button">导出</button><button class="ts-item-btn is-danger" type="button">删除</button>`;
+      const [btnEdit, btnExportItem, btnDeleteItem] = item.querySelectorAll('button');
+      item.addEventListener('click', () => {
+        // 点卡片即应用该主题
+        selectTheme(c.id);
+      });
+      btnEdit.addEventListener('click', (e) => {
+        e.stopPropagation();
+        editing = { id: c.id, baseId: full.baseId, name: full.name, override: JSON.parse(JSON.stringify(full.override)) };
+        editor.hidden = false;
+        fillEditor();
+      });
+      btnExportItem.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const r = exportCustomTheme(c.id);
+        if (!r.ok) { showToast(r.error, 'error'); return; }
+        downloadThemeJson(r.json, full.name);
+        showToast('主题已导出');
+      });
+      btnDeleteItem.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!confirm(`确定删除自定义主题「${c.name}」吗？`)) return;
+        deleteCustomTheme(c.id);
+        if (currentThemeId === c.id) {
+          localStorage.setItem('md2wx_theme', DEFAULT_THEME_ID);
+          currentThemeId = DEFAULT_THEME_ID;
+          currentCustomOverride = null;
+          selectTheme(DEFAULT_THEME_ID);
+        }
+        renderLists();
+        renderThemeDropdown();
+        showToast('已删除');
+      });
+      customList.appendChild(item);
+    }
+  }
+
+  function downloadThemeJson(json, name) {
+    const blob = new Blob([json], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${name}.theme.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  btnSave.addEventListener('click', () => {
+    if (!editing) return;
+    editing.name = nameInput.value.trim() || editing.name;
+    const r = saveCustomTheme(editing.id, { baseId: editing.baseId, name: editing.name, override: editing.override });
+    if (!r.ok) { showToast(r.error, 'error'); return; }
+    showToast('主题已保存');
+    if (!editing.id) editing.id = r.id; // 新建后续编辑沿用
+    renderLists();
+    renderThemeDropdown();
+    // 若正在使用该主题则刷新预览
+    if (currentThemeId === r.id) selectTheme(r.id);
+  });
+
+  btnExport.addEventListener('click', () => {
+    if (!editing) return;
+    // 未保存的编辑态先落盘再导出
+    if (!editing.id) {
+      const r = saveCustomTheme(null, { baseId: editing.baseId, name: nameInput.value.trim() || editing.name, override: editing.override });
+      if (!r.ok) { showToast(r.error, 'error'); return; }
+      editing.id = r.id;
+      renderLists();
+      renderThemeDropdown();
+    }
+    const r = exportCustomTheme(editing.id);
+    if (!r.ok) { showToast(r.error, 'error'); return; }
+    downloadThemeJson(r.json, editing.name);
+    showToast('主题已导出');
+  });
+
+  btnDelete.addEventListener('click', () => {
+    if (!editing || !editing.id) { showToast('尚未保存的新主题无需删除', 'error'); return; }
+    if (!confirm(`确定删除自定义主题「${editing.name}」吗？`)) return;
+    deleteCustomTheme(editing.id);
+    if (currentThemeId === editing.id) {
+      currentThemeId = DEFAULT_THEME_ID;
+      currentCustomOverride = null;
+      localStorage.setItem('md2wx_theme', DEFAULT_THEME_ID);
+      selectTheme(DEFAULT_THEME_ID);
+    }
+    editing = null;
+    editor.hidden = true;
+    renderLists();
+    renderThemeDropdown();
+    showToast('已删除');
+  });
+
+  btnClose.addEventListener('click', () => overlay.classList.remove('active'));
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('active');
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay.classList.contains('active')) overlay.classList.remove('active');
+  });
+
+  // 提供给下拉入口调用
+  window.__renderThemeStudio = () => {
+    renderLists();
+    editor.hidden = !editing;
+  };
+
+  // 导入：文件选择器
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.json,application/json';
+  fileInput.style.display = 'none';
+  document.body.appendChild(fileInput);
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files && fileInput.files[0];
+    fileInput.value = '';
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const r = importCustomTheme(text);
+      if (!r.ok) { showToast('导入失败: ' + r.error, 'error'); return; }
+      showToast('主题已导入');
+      renderLists();
+      renderThemeDropdown();
+    } catch (e) {
+      showToast('导入失败: ' + (e.message || e), 'error');
+    }
+  });
+
+  // 「我的自定义主题」标题行挂导入按钮
+  const importBtn = document.createElement('button');
+  importBtn.className = 'ts-item-btn';
+  importBtn.type = 'button';
+  importBtn.textContent = '导入 JSON';
+  importBtn.addEventListener('click', () => fileInput.click());
+  const customTitle = customList.previousElementSibling; // ts-section-title
+  if (customTitle && customTitle.classList.contains('ts-section-title')) {
+    customTitle.appendChild(document.createTextNode('　'));
+    customTitle.appendChild(importBtn);
+  }
+}
+
+/**
  * 版本速递对话框逻辑 (Changelog Modal)
  */
 function initChangelogModal() {
@@ -1422,6 +1762,7 @@ function init() {
   renderThemeDropdown();
   initSettings();
   initPublishStudio();
+  initThemeStudio();
   initCoverStudio();
   initChangelogModal();
   updateClock();
