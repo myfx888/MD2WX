@@ -70,3 +70,46 @@ body {
   .hub-search { width: 100%; }
   .hub-grid { padding: 16px; }
 }
+
+/* ---------- 预览工作台 ---------- */
+.wb-dialog {
+  width: 96vw; height: 94vh; max-width: none; max-height: none;
+  padding: 0; border: none; border-radius: 12px; overflow: hidden;
+}
+.wb-dialog::backdrop { background: rgba(20,24,30,.6); }
+.wb-bar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 10px 14px; background: #24292f; color: #fff;
+}
+.wb-title { display: flex; align-items: baseline; gap: 8px; min-width: 140px; }
+.wb-title strong { font-size: 14px; word-break: break-all; }
+.wb-cat { font-size: 12px; color: #b7bfc7; }
+.wb-views { display: flex; gap: 4px; }
+.wb-views button, .wb-ops button {
+  padding: 5px 10px; font-size: 12px; border: 1px solid #ffffff33; border-radius: 6px;
+  background: transparent; color: #fff; cursor: pointer;
+}
+.wb-views button.active, .wb-views button:hover { background: #ffffff26; }
+.wb-zoom { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #b7bfc7; }
+.wb-zoom input { width: 110px; }
+.wb-ops { margin-left: auto; display: flex; gap: 6px; }
+.wb-ops .wb-close { border-color: transparent; font-size: 14px; }
+.wb-body { display: flex; height: calc(94vh - 47px); }
+.wb-tree {
+  width: 230px; min-width: 230px; overflow: auto; background: #fafbfc;
+  border-right: 1px solid #e4e7eb; padding: 10px; font-size: 13px;
+}
+.wb-tree summary, .wb-tree .wb-file {
+  padding: 4px 6px; border-radius: 6px; cursor: pointer; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px;
+}
+.wb-tree summary:hover, .wb-tree .wb-file:hover { background: #eef0f3; }
+.wb-tree .wb-file.current { background: #dbeafe; }
+.wb-tree .wb-del {
+  margin-left: auto; border: none; background: none; color: #cf222e; cursor: pointer;
+  font-size: 12px; visibility: hidden;
+}
+.wb-tree .wb-file:hover .wb-del { visibility: visible; }
+.wb-stage-wrap { flex: 1; overflow: auto; display: grid; place-items: center; background: #e9ecf0; }
+.wb-stage { transform-origin: center top; box-shadow: 0 4px 24px rgba(0,0,0,.18); background: #fff; }
+.wb-stage iframe { border: none; width: 100%; height: 100%; display: block; }

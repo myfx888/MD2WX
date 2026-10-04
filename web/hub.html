@@ -36,6 +36,38 @@
     </form>
   </dialog>
 
+  <dialog id="dlg-workbench" class="wb-dialog">
+    <header class="wb-bar">
+      <div class="wb-title">
+        <strong id="wb-name"></strong>
+        <span id="wb-cat" class="wb-cat"></span>
+      </div>
+      <div class="wb-views" id="wb-views">
+        <button data-vp="fit" class="active">铺满</button>
+        <button data-vp="1440x900">1440×900</button>
+        <button data-vp="1920x1080">1920×1080</button>
+        <button data-vp="375x812">375×812</button>
+      </div>
+      <div class="wb-zoom">
+        <input id="wb-zoom-range" type="range" min="20" max="150" value="100" aria-label="缩放比例">
+        <span id="wb-zoom-val">100%</span>
+      </div>
+      <div class="wb-ops">
+        <button id="wb-refresh" title="无损刷新">刷新</button>
+        <button id="wb-newtab" title="新窗口打开">新窗口</button>
+        <button id="wb-close" class="wb-close" title="关闭">✕</button>
+      </div>
+    </header>
+    <div class="wb-body">
+      <aside id="wb-tree" class="wb-tree"></aside>
+      <div class="wb-stage-wrap" id="wb-stage-wrap">
+        <div class="wb-stage" id="wb-stage">
+          <iframe id="wb-frame" title="作品预览"></iframe>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
   <script type="module" src="./src/hub/hub.js"></script>
 </body>
 </html>
