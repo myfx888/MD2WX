@@ -4,7 +4,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CUSTOM_COLORS, CUSTOM_TYPOGRAPHY, FONT_STACKS, CUSTOM_STORE_KEY,
+  CUSTOM_COLORS, CUSTOM_TYPOGRAPHY, FONT_STACKS, CUSTOM_STORE_KEY, CUSTOM_STYLES,
   listCustomThemes, getCustomTheme, saveCustomTheme, deleteCustomTheme,
   exportCustomTheme, importCustomTheme, deepMerge, FALLBACK_BASE_THEME,
 } from './.custom.bundle.mjs';
@@ -60,7 +60,7 @@ describe('save/list/get/delete 往返', () => {
   it('name 为空 -> 拒绝；override 含非法键 -> 拒绝', () => {
     const s = mockStore();
     assert.equal(saveCustomTheme(null, { baseId: 'tech-blue', name: '  ', override: {} }, s).ok, false);
-    assert.equal(saveCustomTheme(null, { baseId: 'tech-blue', name: 'X', override: { styles: { h1: 'underline' } } }, s).ok, false);
+    assert.equal(saveCustomTheme(null, { baseId: 'tech-blue', name: 'X', override: { bogus: {} } }, s).ok, false);
   });
 
   it('重名允许（id 唯一即可）', () => {
@@ -92,6 +92,50 @@ describe('合并语义（getTheme 兼容）', () => {
   });
 });
 
+describe('组件样式（styles 键）', () => {
+  it('CUSTOM_STYLES 覆盖 9 大组件且含默认变体', () => {
+    assert.equal(CUSTOM_STYLES.length, 9);
+    const defaults = { container: 'clean', h1: 'underline', h2: 'left_bar', h3: 'diamond', quote: 'left_stripe', code: 'mac_dark', table: 'zebra', list: 'bullet', hr: 'line' };
+    for (const s of CUSTOM_STYLES) {
+      assert.ok(defaults[s.key] !== undefined, `未知组件 ${s.key}`);
+      assert.ok(s.variants.some((v) => v.id === defaults[s.key]), `${s.key} 缺默认变体`);
+      assert.ok(s.label);
+    }
+  });
+
+  it('save 接受合法 styles，拒绝非法变体与数组', () => {
+    const s = mockStore();
+    const ok = saveCustomTheme(null, { baseId: 'tech-blue', name: 'S', override: { styles: { h1: 'capsule' } } }, s);
+    assert.equal(ok.ok, true);
+    assert.equal(getCustomTheme(ok.id, s).override.styles.h1, 'capsule');
+
+    assert.equal(saveCustomTheme(null, { baseId: 'tech-blue', name: 'S2', override: { styles: { h1: 'not-a-variant' } } }, s).ok, false);
+    assert.equal(saveCustomTheme(null, { baseId: 'tech-blue', name: 'S3', override: { styles: ['x'] } }, s).ok, false);
+  });
+
+  it('styles 各组件可选值均能保存（白名单与枚举一致）', () => {
+    const s = mockStore();
+    for (const comp of CUSTOM_STYLES) {
+      for (const v of comp.variants) {
+        const r = saveCustomTheme(null, { baseId: 'tech-blue', name: 'V' + comp.key + v.id, override: { styles: { [comp.key]: v.id } } }, s);
+        assert.equal(r.ok, true, `${comp.key}=${v.id} 应合法`);
+      }
+    }
+  });
+
+  it('含 styles 的导出导入回环；旧格式（无 styles）仍可导入', () => {
+    const s = mockStore();
+    const { id } = saveCustomTheme(null, { baseId: 'vintage-news', name: '带样式', override: { styles: { quote: 'elegant_quote', table: 'three_line' } } }, s);
+    const { json } = exportCustomTheme(id, s);
+    const imp = importCustomTheme(json, mockStore());
+    assert.equal(imp.ok, true);
+    // 旧格式（一期导出，无 styles）
+    const old = JSON.stringify({ version: 1, baseId: 'tech-blue', name: '旧格式', override: { colors: { accent: '#123456' } } });
+    const impOld = importCustomTheme(old, mockStore());
+    assert.equal(impOld.ok, true);
+  });
+});
+
 describe('export/import 回环', () => {
   it('导出为 version:1 JSON，导入还原 override', () => {
     const s = mockStore();
@@ -112,7 +156,7 @@ describe('export/import 回环', () => {
     const s = mockStore();
     assert.equal(importCustomTheme('{broken', s).ok, false);
     assert.equal(importCustomTheme(JSON.stringify({ version: 1, baseId: 'nope', name: 'X', override: {} }), s).ok, false);
-    assert.equal(importCustomTheme(JSON.stringify({ version: 1, baseId: 'tech-blue', name: 'X', override: { styles: {} } }), s).ok, false);
+    assert.equal(importCustomTheme(JSON.stringify({ version: 1, baseId: 'tech-blue', name: 'X', override: { bogus: {} } }), s).ok, false);
   });
 
   it('导入重名自动加「导入」后缀', () => {

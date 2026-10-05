@@ -31,7 +31,45 @@ export const FONT_STACKS = [
   { id: 'mono', label: '等宽', value: 'ui-monospace, Menlo, monospace' },
 ];
 
-const OVERRIDE_KEYS = ['colors', 'typography'];
+// 9 大组件的视觉骨架变体（与 parser.js 各渲染函数的 style === 'x' 分支逐一核对，2026-10-05）
+// 每个组件的 variants 均含默认变体（parser 兜底分支），下拉可直接选回默认
+export const CUSTOM_STYLES = [
+  { key: 'container', label: '容器', variants: [
+    { id: 'clean', label: '极简白' }, { id: 'paper', label: '牛皮纸微框' }, { id: 'dark', label: '曜石纯黑' },
+    { id: 'card', label: '悬浮卡片' }, { id: 'memo', label: '日系便签' }, { id: 'brutalist', label: '新野兽派' },
+  ]},
+  { key: 'h1', label: '一级标题', variants: [
+    { id: 'underline', label: '下划粗线' }, { id: 'double_line', label: '古典双线' }, { id: 'capsule', label: '胶囊药丸' },
+    { id: 'terminal', label: '终端命令行' }, { id: 'brutalist', label: '黑框硬投影' },
+  ]},
+  { key: 'h2', label: '二级标题', variants: [
+    { id: 'left_bar', label: '左侧竖条' }, { id: 'bottom_line', label: '底部细线' }, { id: 'pill_badge', label: '药丸徽章' },
+    { id: 'bubble_bg', label: '气泡底色' }, { id: 'serif_badge', label: '衬线徽章' }, { id: 'terminal_prompt', label: '终端提示符' },
+    { id: 'brutalist_box', label: '硬框投影' },
+  ]},
+  { key: 'h3', label: '三级标题', variants: [
+    { id: 'diamond', label: '菱形' }, { id: 'circle_badge', label: '圆形徽章' }, { id: 'highlight_bg', label: '高亮底色' },
+    { id: 'slash', label: '斜杠' },
+  ]},
+  { key: 'quote', label: '引用', variants: [
+    { id: 'left_stripe', label: '左侧条纹' }, { id: 'elegant_quote', label: '优雅引号' }, { id: 'bubble_card', label: '气泡卡片' },
+    { id: 'paper_memo', label: '便签纸' }, { id: 'terminal_box', label: '终端框' }, { id: 'brutalist', label: '硬边框' },
+  ]},
+  { key: 'code', label: '代码块', variants: [
+    { id: 'mac_dark', label: '苹果暗色' }, { id: 'terminal', label: '终端' }, { id: 'clean_flat', label: '极简平' },
+  ]},
+  { key: 'table', label: '表格', variants: [
+    { id: 'zebra', label: '斑马纹' }, { id: 'three_line', label: '学术三线表' }, { id: 'grid', label: '全网格' },
+  ]},
+  { key: 'list', label: '列表', variants: [
+    { id: 'bullet', label: '圆点' }, { id: 'diamond', label: '菱形' }, { id: 'square', label: '方点' }, { id: 'arrow', label: '箭头' },
+  ]},
+  { key: 'hr', label: '分割线', variants: [
+    { id: 'line', label: '细线' }, { id: 'gradient', label: '渐变线' }, { id: 'asterisk', label: '星号' }, { id: 'terminal_dash', label: '虚线终端' },
+  ]},
+];
+
+const OVERRIDE_KEYS = ['colors', 'typography', 'styles'];
 
 function defaultStore() {
   if (typeof localStorage !== 'undefined') return localStorage;
@@ -68,9 +106,16 @@ function genId() {
 
 function validOverride(override) {
   if (!override || typeof override !== 'object' || Array.isArray(override)) return false;
-  return Object.keys(override).every(
-    (k) => OVERRIDE_KEYS.includes(k) && override[k] && typeof override[k] === 'object' && !Array.isArray(override[k])
-  );
+  return Object.keys(override).every((k) => {
+    if (k === 'styles') {
+      // styles 键值须在 CUSTOM_STYLES 白名单内
+      const st = override[k];
+      if (!st || typeof st !== 'object' || Array.isArray(st)) return false;
+      const known = new Map(CUSTOM_STYLES.map((c) => [c.key, new Set(c.variants.map((v) => v.id))]));
+      return Object.entries(st).every(([comp, val]) => known.get(comp)?.has(val));
+    }
+    return OVERRIDE_KEYS.includes(k) && override[k] && typeof override[k] === 'object' && !Array.isArray(override[k]);
+  });
 }
 
 export function listCustomThemes(store = defaultStore()) {
