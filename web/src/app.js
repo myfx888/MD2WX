@@ -12,7 +12,7 @@ import { domToPngBlob, copyImageToClipboard, downloadImageBlob, renderCoverDirec
 import { extractPublishMeta, buildPublishPayload, resolvePushConfig, readPushHistory, recordPush, countWords } from './core/publish.js';
 import {
   listCustomThemes, getCustomTheme, saveCustomTheme, deleteCustomTheme,
-  exportCustomTheme, importCustomTheme, CUSTOM_COLORS, CUSTOM_TYPOGRAPHY, FONT_STACKS,
+  exportCustomTheme, importCustomTheme, CUSTOM_COLORS, CUSTOM_TYPOGRAPHY, FONT_STACKS, CUSTOM_STYLES,
 } from './core/customThemes.js';
 import {
   isImageHostConfigured,
@@ -1463,6 +1463,58 @@ function initThemeStudio() {
   // 工坊内编辑态（与全局 currentThemeId 解耦）
   let editing = null; // { id, baseId, name, override }
 
+  // ============ 编辑面板标签页：颜色 | 排版 | 组件样式 ============
+  // 把既有「主题名称/颜色」归入颜色 tab，排版（含字体栈）归入排版 tab，
+  // 组件样式区块由本函数动态构建。名称输入在所有 tab 上共享（置于 tab 条上方）。
+  const tabsBar = document.createElement('div');
+  tabsBar.className = 'ts-tabs';
+  tabsBar.innerHTML = ['颜色', '排版', '组件样式'].map((t, i) =>
+    `<button type="button" class="ts-tab ${i === 0 ? 'active' : ''}" data-tab="${i}">${t}</button>`
+  ).join('');
+  const tabPages = [document.createElement('div'), document.createElement('div'), document.createElement('div')];
+  tabPages.forEach((p, i) => { p.className = 'ts-tab-page' + (i === 0 ? ' active' : ''); p.hidden = i !== 0; });
+  const editorEl = editor; // #ts-editor
+  // 名称字段挪到 tab 条上方（保留原节点）
+  const nameField = nameInput.closest('.ts-field');
+  editorEl.insertBefore(tabsBar, editorTitle.nextSibling);
+  // 原有「颜色」块（colorRow 所在 field）挪入 tab0；「排版」块（typoRow+字体栈所在 field）挪入 tab1
+  const colorField = colorRow.closest('.ts-field');
+  const typoField = typoRow.closest('.ts-field');
+  tabPages[0].appendChild(colorField);
+  tabPages[1].appendChild(typoField);
+  // tab2：组件样式下拉
+  const stylesField = document.createElement('div');
+  stylesField.className = 'ts-field';
+  stylesField.innerHTML = '<label class="settings-label">组件样式（视觉骨架变体）</label><div class="ts-styles-row" id="ts-styles-row"></div>';
+  tabPages[2].appendChild(stylesField);
+  tabPages.forEach((p) => editorEl.appendChild(p));
+  tabsBar.addEventListener('click', (e) => {
+    const btn = e.target.closest('.ts-tab');
+    if (!btn) return;
+    tabsBar.querySelectorAll('.ts-tab').forEach((b) => b.classList.toggle('active', b === btn));
+    const idx = Number(btn.dataset.tab);
+    tabPages.forEach((p, i) => { p.classList.toggle('active', i === idx); p.hidden = i !== idx; });
+  });
+  const stylesRow = stylesField.querySelector('#ts-styles-row');
+
+  // ============ 组件样式下拉（一次性构建） ============
+  const styleSelects = {};
+  for (const comp of CUSTOM_STYLES) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ts-style-item';
+    wrap.innerHTML = `<span>${comp.label}</span><select class="settings-input" data-key="${comp.key}"></select>`;
+    stylesRow.appendChild(wrap);
+    const sel = wrap.querySelector('select');
+    for (const v of comp.variants) {
+      const opt = document.createElement('option');
+      opt.value = v.id;
+      opt.textContent = v.label;
+      sel.appendChild(opt);
+    }
+    sel.addEventListener('change', () => applyLocal(comp.key, 'styles', sel.value));
+    styleSelects[comp.key] = sel;
+  }
+
   const PREVIEW_SAMPLE = [
     '# 标题层级演示',
     '',
@@ -1547,6 +1599,13 @@ function initThemeStudio() {
     const ff = editing.override.typography?.font_family || baseTheme.typography?.font_family || '';
     const match = FONT_STACKS.find((f) => f.value === ff);
     fontSelect.value = match ? match.id : 'system';
+    // 回填组件样式下拉：override > 基础主题 > 引擎默认
+    for (const comp of CUSTOM_STYLES) {
+      const cur = editing.override.styles?.[comp.key]
+        || baseTheme.styles?.[comp.key]
+        || comp.variants[0].id;
+      styleSelects[comp.key].value = cur;
+    }
     renderPreviewPane();
   }
 

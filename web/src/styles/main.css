@@ -924,3 +924,59 @@ input:checked + .slider:before {
   color: var(--text-tertiary, #a1a1aa);
   padding: 6px 12px 2px;
 }
+
+/* 主题工坊：编辑面板标签页（颜色 | 排版 | 组件样式） */
+.ts-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0 12px;
+  border-bottom: 1px solid var(--border-color, #e4e4e7);
+}
+
+.ts-tab {
+  border: none;
+  background: none;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  color: var(--text-secondary, #52525b);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.ts-tab.active {
+  color: var(--accent, #2563eb);
+  border-bottom-color: var(--accent, #2563eb);
+  font-weight: 600;
+}
+
+.ts-tab-page {
+  display: none;
+}
+
+.ts-tab-page.active {
+  display: block;
+}
+
+.ts-styles-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ts-style-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.ts-style-item span {
+  flex: 0 0 62px;
+  color: var(--text-secondary, #52525b);
+}
+
+.ts-style-item select {
+  flex: 1;
+  margin-top: 0;
+  padding: 5px 8px;
+}
