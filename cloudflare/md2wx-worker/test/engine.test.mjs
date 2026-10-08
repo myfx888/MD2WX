@@ -230,8 +230,7 @@ describe('POST /api/draft 推送链路（env.__WX_FETCH 注入 mock 微信 API�
     assert.ok(uploadCall, '正文外链图必须经过 uploadimg 换链');
   });
 
-  it('content 形态：无封面且正文无图 -> 服务端默认封面兜底成功', async () => {
-    const wx = mockWxFetch([
+  it('content 形态：无封面且正文无图 -> 服务端默认封面兜底成功', async () => {    const wx = mockWxFetch([
       { match: 'stable_token', body: { access_token: 'TOKEN1' } },
       { match: 'add_material', body: { media_id: 'MEDIA_DEF' } },
       { match: 'draft/add', body: { media_id: 'DRAFT_DEF' } },
@@ -267,5 +266,71 @@ describe('POST /api/draft 推送链路（env.__WX_FETCH 注入 mock 微信 API�
     const data = await res.json();
     assert.equal(data.code, 0);
     assert.equal(data.used_default_cover, true);
+  });
+});
+
+// ============================== /api/wx-image（本地图片直传素材库） ==============================
+
+function makeImageFile(type = 'image/png', size = 1024) {
+  return new File([new Uint8Array(size)], 'photo.png', { type });
+}
+
+function postForm(path, form, env = DRAFT_ENV, headers = {}) {
+  return worker.fetch(req(path, { method: 'POST', headers, body: form }), env, {});
+}
+
+describe('POST /api/wx-image', () => {
+  beforeEach(() => __resetTokenCache());
+
+  it('未配置 DRAFT_API_KEY 时 fail-closed 拒绝', async () => {
+    const form = new FormData();
+    form.append('file', makeImageFile());
+    const res = await postForm('/api/wx-image', form, {});
+    assert.equal(res.status, 500);
+  });
+
+  it('Key 错误返回 401', async () => {
+    const form = new FormData();
+    form.append('file', makeImageFile());
+    const res = await postForm('/api/wx-image', form, DRAFT_ENV, { 'X-API-Key': 'nope' });
+    assert.equal(res.status, 401);
+  });
+
+  it('MIME 与大小校验', async () => {
+    const badType = new FormData();
+    badType.append('file', makeImageFile('application/zip'));
+    const r1 = await postForm('/api/wx-image', badType, DRAFT_ENV, DRAFT_HEADERS);
+    assert.equal(r1.status, 400);
+    assert.ok((await r1.json()).msg.includes('PNG'));
+
+    const tooBig = new FormData();
+    tooBig.append('file', makeImageFile('image/png', 10 * 1024 * 1024 + 1));
+    const r2 = await postForm('/api/wx-image', tooBig, DRAFT_ENV, DRAFT_HEADERS);
+    assert.equal(r2.status, 413);
+  });
+
+  it('env 与表单均无 appid/secret 返回 400', async () => {
+    const form = new FormData();
+    form.append('file', makeImageFile());
+    const res = await postForm('/api/wx-image', form, { DRAFT_API_KEY: 'test-key' }, DRAFT_HEADERS);
+    assert.equal(res.status, 400);
+    assert.ok((await res.json()).msg.includes('appid'));
+  });
+
+  it('happy path：上传素材库返回 url（add_material 响应含 url）', async () => {
+    const wx = mockWxFetch([
+      { match: 'stable_token', body: { access_token: 'TOKEN1' } },
+      { match: 'add_material', body: { media_id: 'MAT1', url: 'https://mmbiz.qpic.cn/m/saved.png' } },
+    ]);
+    const form = new FormData();
+    form.append('file', makeImageFile());
+    const res = await postForm('/api/wx-image', form, { ...DRAFT_ENV, __WX_FETCH: wx }, DRAFT_HEADERS);
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.code, 0);
+    assert.equal(data.url, 'https://mmbiz.qpic.cn/m/saved.png');
+    assert.equal(data.media_id, 'MAT1');
+    const addCall = wx.calls.find((c) => c.url.includes('add_material'));
+    assert.ok(addCall, '必须调用 add_material（永久素材，进素材库）');
   });
 });

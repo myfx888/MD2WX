@@ -157,6 +157,21 @@ export class WeChat {
     return data.media_id;
   }
 
+  /**
+   * 上传永久图片素材（进公众号素材库），返回 { media_id, url }。
+   * url 可直接用于图文正文；与 uploadMaterial（仅返回 media_id，封面用）分离，互不影响。
+   */
+  async uploadMaterialImage(blob) {
+    const token = await this.getToken();
+    const resp = await this.fetch(`${WX_BASE}/cgi-bin/material/add_material?access_token=${token}&type=image`, {
+      method: 'POST',
+      body: formDataFile('media', blob, 'image.png'),
+    });
+    const data = await resp.json();
+    if (!data.media_id) throw new Error('上传素材失败: ' + JSON.stringify(data));
+    return { media_id: data.media_id, url: data.url || '' };
+  }
+
   async urlToBlob(url) {
     const resp = await this.fetch(url);
     if (!resp.ok) throw new Error('下载图片失败: ' + url + ' (' + resp.status + ')');
@@ -362,6 +377,53 @@ async function handleDraft(request, body, env) {
   }
 }
 
+const WX_IMAGE_MIME = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+const WX_IMAGE_MAX_BYTES = 10 * 1024 * 1024; // 微信永久图片素材上限 10MB
+
+/**
+ * POST /api/wx-image：本地图片直传公众号素材库（add_material 永久素材）。
+ * 鉴权与 /api/draft 相同（X-API-Key / ?key=）；表单字段 file（兼容 image/media），
+ * appid/secret 可随表单穿透（多公众号）。返回 {code:0, url, media_id}，url 可直接插入正文。
+ */
+async function handleWxImage(request, env) {
+  const KEY = env.DRAFT_API_KEY || '';
+  if (!KEY) return json({ code: 1, msg: '服务端未配置 DRAFT_API_KEY，拒绝上传' }, 500);
+  const provided = request.headers.get('X-API-Key') || new URL(request.url).searchParams.get('key') || '';
+  if (provided !== KEY) return json({ code: 1, msg: '未授权' }, 401);
+
+  let form;
+  try {
+    form = await request.formData();
+  } catch {
+    return json({ code: 1, msg: '请求不是合法的 multipart/form-data' }, 400);
+  }
+  const file = form.get('file') || form.get('image') || form.get('media');
+  if (!file || typeof file === 'string') {
+    return json({ code: 1, msg: '未找到文件字段 (file)' }, 400);
+  }
+  if (!WX_IMAGE_MIME.includes(file.type)) {
+    return json({ code: 1, msg: '仅支持 PNG / JPG / WebP / GIF 图片' }, 400);
+  }
+  if (file.size > WX_IMAGE_MAX_BYTES) {
+    return json({ code: 1, msg: '图片不能超过 10MB（微信素材上限）' }, 413);
+  }
+
+  const appid = form.get('appid') || env.WECHAT_APPID || '';
+  const secret = form.get('secret') || env.WECHAT_APPSECRET || '';
+  if (!appid || !secret) {
+    return json({ code: 1, msg: '缺少 appid/secret：表单未带且 Worker 未配置环境变量' }, 400);
+  }
+
+  // env.__WX_FETCH 为测试注入口：生产环境恒为 undefined
+  const wx = new WeChat(appid, secret, env.__WX_FETCH || globalThis.fetch);
+  try {
+    const { media_id, url } = await wx.uploadMaterialImage(file);
+    return json({ code: 0, url, media_id });
+  } catch (e) {
+    return json({ code: 1, msg: String(e.message || e) }, 500);
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -390,6 +452,10 @@ export default {
       let body;
       try { body = await request.json(); } catch { return json({ code: 1, msg: 'invalid json' }, 400); }
       return handleDraft(request, body, env);
+    }
+
+    if (request.method === 'POST' && url.pathname === '/api/wx-image') {
+      return handleWxImage(request, env);
     }
 
     // ============================== 作品 Hub ==============================

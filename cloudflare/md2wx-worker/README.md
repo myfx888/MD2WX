@@ -12,6 +12,7 @@ Markdown 转换 API 与微信草稿箱推送 API。响应契约与旧版单文�
 | `/api/themes` | GET | 无 | 枚举 9 大内置主题 |
 | `/api/convert` | POST | 无（CORS `*`，60 次/分/IP 限流） | `{markdown, theme?}` → `{code:0, html, title, digest, theme}`，title/digest 取自 frontmatter |
 | `/api/draft` | POST | `X-API-Key` 头或 `?key=` | 见下 |
+| `/api/wx-image` | POST | `X-API-Key` 头或 `?key=` | 本地图片直传公众号素材库（永久素材）：multipart 表单 `file`（PNG/JPG/WebP/GIF，≤10MB），返回 `{code:0, url, media_id}`，url 可直接插入正文。Web Studio 编辑器本地上传在配置推送 API Key 后自动走此通道 |
 
 `/api/draft` 请求体两种形态：
 

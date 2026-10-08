@@ -598,6 +598,11 @@ function initPublishStudio() {
       f.set(el.value.trim());
       localStorage.setItem(f.key, el.value.trim());
       renderConnStatus();
+      // 图片菜单的可用提示依赖 API Key（微信直传），即时同步
+      if (f.id === 'push-api-key') {
+        const hint = document.getElementById('image-host-hint');
+        if (hint) hint.textContent = el.value.trim() ? '' : '未配置图片上传：请在发布工坊的连接配置里填写推送 API Key（本地照片将直传公众号素材库），或部署在线图床。';
+      }
     });
   }
 
@@ -867,7 +872,7 @@ function bindEvents() {
   }
 
   if (imageHostHint) {
-    imageHostHint.textContent = imageHostConfigured ? '' : '当前未配置图床，本地上传不可用';
+    imageHostHint.textContent = imageHostConfigured ? '' : IMAGE_HOST_UNCONFIGURED_HINT;
   }
   if (imageUploadTrigger && !imageHostConfigured) {
     imageUploadTrigger.classList.add('is-disabled');

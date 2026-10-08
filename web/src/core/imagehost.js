@@ -33,12 +33,30 @@ export const IMAGE_HOST_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif';
 export const IMAGE_HOST_MAX_BYTES = 10 * 1024 * 1024; // 10MB
 
 export const IMAGE_HOST_UNCONFIGURED_HINT =
-  '未配置在线图床，暂不支持上传图片。请在 .env 中设置 IMAGE_HOST_UPLOAD_URL (构建时用 VITE_ 前缀) 后重试。';
+  '未配置图片上传：请在发布工坊的连接配置里填写推送 API Key（本地照片将直传公众号素材库），或部署在线图床。';
 
 /**
- * 图床是否已配置（UPLOAD_URL 非空且非占位符）
+ * 微信素材库直传配置（复用发布工坊的连接配置，localStorage 持久化）：
+ *   md2wx_push_api_key      必填，/api/wx-image 鉴权
+ *   md2wx_wx_image_endpoint 可选，直传端点，默认同源 /api/wx-image（GitHub Pages 场景填 Worker 完整地址）
+ *   md2wx_push_appid/secret 可选，多公众号穿透
+ */
+export function getWxImageConfig() {
+  const apiKey = (localStorage.getItem('md2wx_push_api_key') || '').trim();
+  if (!apiKey) return null;
+  return {
+    apiKey,
+    endpoint: (localStorage.getItem('md2wx_wx_image_endpoint') || '').trim() || '/api/wx-image',
+    appId: (localStorage.getItem('md2wx_push_appid') || '').trim(),
+    appSecret: (localStorage.getItem('md2wx_push_secret') || '').trim(),
+  };
+}
+
+/**
+ * 上传通道是否可用：微信直传（有 API Key）优先，其次在线图床
  */
 export function isImageHostConfigured() {
+  if (typeof localStorage !== 'undefined' && getWxImageConfig()) return true;
   if (!UPLOAD_URL) return false;
   return !/^(your_|<)/i.test(UPLOAD_URL) && /^https?:\/\//i.test(UPLOAD_URL);
 }
@@ -81,16 +99,49 @@ function extractByPath(data, path) {
 }
 
 /**
- * 上传本地图片到图床，成功返回可插入 Markdown 的图片 URL
+ * 本地图片直传公众号素材库（POST /api/wx-image，永久素材，返回可直接插入正文的微信 URL）
+ */
+async function uploadToWxMaterial(file, cfg) {
+  const form = new FormData();
+  form.append('file', file);
+  if (cfg.appId) form.append('appid', cfg.appId);
+  if (cfg.appSecret) form.append('secret', cfg.appSecret);
+
+  let res;
+  try {
+    res = await fetch(cfg.endpoint, {
+      method: 'POST',
+      headers: { 'X-API-Key': cfg.apiKey },
+      body: form,
+    });
+  } catch (err) {
+    throw new Error('微信直传网络请求失败，请检查端点可用性');
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.code !== 0 || !data.url) {
+    throw new Error('素材库上传失败: ' + (data.msg || `HTTP ${res.status}`));
+  }
+  return data.url;
+}
+
+/**
+ * 上传本地图片：微信素材库直传优先（发布工坊已配 Key 即可用），
+ * 未配置时回落到在线图床。成功返回可插入 Markdown 的图片 URL
  * @param {File} file
  * @returns {Promise<string>}
  */
 export async function uploadImageFile(file) {
+  const precheckError = validateImageFile(file);
+  if (precheckError) throw new Error(precheckError);
+
+  const wxCfg = typeof localStorage !== 'undefined' ? getWxImageConfig() : null;
+  if (wxCfg) {
+    return uploadToWxMaterial(file, wxCfg);
+  }
+
   if (!isImageHostConfigured()) {
     throw new Error(IMAGE_HOST_UNCONFIGURED_HINT);
   }
-  const precheckError = validateImageFile(file);
-  if (precheckError) throw new Error(precheckError);
 
   const form = new FormData();
   form.append(FILE_FIELD, file);
