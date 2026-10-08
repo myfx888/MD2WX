@@ -34,7 +34,7 @@ from .publisher import publish_draft_to_wechat
 
 # 各主题封面徽标预设 (与 Web Studio THEME_COVER_PRESETS 保持一致)
 COVER_BADGE_PRESETS = {
-    "tech-blue": "TECH BLOG",
+    "tech-blue": "WZZS",
     "acid-bold": "ACID BOLD",
     "dark-night": "NIGHT RUN",
     "elegant-purple": "AESTHETIC",
@@ -342,7 +342,7 @@ def main():
         "title": title,
         "digest": digest,
         "author": author,
-        "badge": COVER_BADGE_PRESETS.get(theme_input, "TECH BLOG"),
+        "badge": COVER_BADGE_PRESETS.get(theme_input, "WZZS"),
         "vol": f"2026 · V{__version__}"
     }
     html_output = markdown_to_wechat_html(

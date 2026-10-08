@@ -27,8 +27,8 @@ export const WECHAT_CROP_COORDINATES = {
 export const THEME_COVER_PRESETS = {
   'tech-blue': {
     name: '现代科技蓝',
-    defaultTag: '深度架构 · 极客手记',
-    badgeText: 'TECH BLOG',
+    defaultTag: '万舟智算 · 教程系列',
+    badgeText: 'WZZS',
     volText: '2026 · VOL.02'
   },
   'acid-bold': {
@@ -157,8 +157,8 @@ export function renderCoverHtml(themeId = 'tech-blue', ratio = 'banner', meta = 
   const safeTitle = escapeMultiline(meta.title || '在喧嚣时代重塑深度思考');
   const safeDigest = escapeMultiline(meta.digest || '真正的专注，是充满干扰的世界中守住内心的秩序');
   const safeAuthor = escapeHtml(meta.author || '野生宝藏箱');
-  const safeTag = escapeHtml(meta.tag || '深度架构 · 极客手记');
-  const safeBadge = escapeHtml(meta.badge || 'TECH BLOG');
+  const safeTag = escapeHtml(meta.tag || '万舟智算 · 教程系列');
+  const safeBadge = escapeHtml(meta.badge || 'WZZS');
   const safeVol = escapeHtml(meta.vol || '2026 · VOL.02');
 
   const isSquare = ratio === 'square';
@@ -291,7 +291,7 @@ export function renderWechatArticleHeaderCover(themeId = 'tech-blue', meta = {})
   const safeTitle = escapeMultiline(meta.title || '在喧嚣时代重塑深度思考');
   const safeDigest = escapeMultiline(meta.digest || '真正的专注，是在充满干扰的世界中守住内心的秩序');
   const safeAuthor = escapeHtml(meta.author || '野生宝藏箱');
-  const safeBadge = escapeHtml(meta.badge || 'TECH BLOG');
+  const safeBadge = escapeHtml(meta.badge || 'WZZS');
   const safeVol = escapeHtml(meta.vol || '2026 · VOL.02');
 
   if (themeId === 'acid-bold') {

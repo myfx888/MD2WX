@@ -22,8 +22,8 @@ from typing import Dict, Optional
 THEME_COVER_PRESETS: Dict[str, Dict[str, str]] = {
     "tech-blue": {
         "name": "现代科技蓝",
-        "defaultTag": "深度架构 · 极客手记",
-        "badgeText": "TECH BLOG",
+        "defaultTag": "万舟智算 · 教程系列",
+        "badgeText": "WZZS",
         "volText": "2026 · VOL.02",
     },
     "acid-bold": {

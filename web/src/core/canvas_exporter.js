@@ -51,8 +51,8 @@ export function renderCoverDirectCanvas(themeId, ratio, meta, scale = 2) {
   const title = meta.title || '在喧嚣时代重塑深度思考';
   const digest = meta.digest || '真正的专注，是在充满干扰的世界中守住内心的秩序';
   const author = meta.author || '野生宝藏箱';
-  const tag = meta.tag || '深度架构 · 极客手记';
-  const badge = meta.badge || 'TECH BLOG';
+  const tag = meta.tag || '万舟智算 · 教程系列';
+  const badge = meta.badge || 'WZZS';
   const vol = meta.vol || '2026 · VOL.02';
   const site = meta.website || 'MD2WX.ZANEVEN.COM';
 
