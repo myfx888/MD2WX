@@ -11,7 +11,7 @@ def publish_draft_to_wechat(
     token: str,
     title: str,
     content_html: str,
-    author: str = "野生宝藏箱",
+    author: str = "万舟智算",
     digest: str = "",
     thumb_media_id: Optional[str] = None,
     cover_image_path: Optional[str] = None,

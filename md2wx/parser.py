@@ -617,7 +617,7 @@ def render_wechat_article_header_cover(theme_id: str = "tech-blue", meta: dict =
         meta = {}
     safe_title = (meta.get("title") or "在喧嚣时代重塑深度思考").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
     safe_digest = (meta.get("digest") or "真正的专注，是在充满干扰的世界中守住内心的秩序").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
-    safe_author = (meta.get("author") or "野生宝藏箱").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    safe_author = (meta.get("author") or "万舟智算").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     safe_tag = (meta.get("tag") or "万舟智算 · 教程系列").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     safe_badge = (meta.get("badge") or ("ACID BOLD" if theme_id == "acid-bold" else "WZZS")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     safe_vol = (meta.get("vol") or "2026 · V1.0.2 RELEASE").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")

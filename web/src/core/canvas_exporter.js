@@ -50,7 +50,7 @@ export function renderCoverDirectCanvas(themeId, ratio, meta, scale = 2) {
 
   const title = meta.title || '在喧嚣时代重塑深度思考';
   const digest = meta.digest || '真正的专注，是在充满干扰的世界中守住内心的秩序';
-  const author = meta.author || '野生宝藏箱';
+  const author = meta.author || '万舟智算';
   const tag = meta.tag || '万舟智算 · 教程系列';
   const badge = meta.badge || 'WZZS';
   const vol = meta.vol || '2026 · VOL.02';

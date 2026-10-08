@@ -126,7 +126,7 @@ def main():
     parser.add_argument("--cover", help="指定头条封面图片路径 (默认优先级: 此参数 > frontmatter cover: > 动态渲染主题双封面 > 正文首图)")
     parser.add_argument("--cover-square", help="指定次条/会话 1:1 方形封面图片路径 (与 --cover 搭配时将自动拼接为双比例合图)")
     parser.add_argument("--no-dual-cover", action="store_true", help="禁用双比例拼接封面，仅生成单张 2.35:1 头条封面")
-    parser.add_argument("--author", help="指定文章作者 (默认读取 Frontmatter 或 '野生宝藏箱')")
+    parser.add_argument("--author", help="指定文章作者 (默认读取 Frontmatter 或 '万舟智算')")
     parser.add_argument("--title", help="指定文章标题 (默认读取 Frontmatter 或首个 H1)")
     parser.add_argument("--app-id", help="微信 AppID (默认从环境变量或 .env 读取)")
     parser.add_argument("--no-cover", action="store_true", help="不在正文顶部注入封面卡片")
@@ -240,7 +240,7 @@ def main():
                 break
     title = title or "未命名文章"
 
-    author = args.author or meta.get("author") or "野生宝藏箱"
+    author = args.author or meta.get("author") or "万舟智算"
     # 摘要优先级与 Web Studio extractCoverMeta 对齐: frontmatter digest > 正文首个引言块 > 正文纯文本摘要
     digest = meta.get("digest") or extract_quote_text(body_md, 120) or strip_markdown(body_md, 120)
 

@@ -280,7 +280,7 @@ def build_cover_meta(theme_id: str, title: str = "", digest: str = "",
     return {
         "title": (title or "在喧嚣时代重塑深度思考").strip()[:36],
         "digest": (digest or "真正的专注，是在充满干扰的世界中守住内心的秩序").strip()[:60],
-        "author": (author or "野生宝藏箱").strip()[:16],
+        "author": (author or "万舟智算").strip()[:16],
         "tag": tag.strip()[:24],
         "badge": preset["badgeText"],
         "vol": preset["volText"],
