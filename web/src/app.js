@@ -598,10 +598,9 @@ function initPublishStudio() {
       f.set(el.value.trim());
       localStorage.setItem(f.key, el.value.trim());
       renderConnStatus();
-      // 图片菜单的可用提示依赖 API Key（微信直传），即时同步
+      // 图片菜单的可用提示依赖 API Key（微信直传），派发事件让图片模块即时刷新
       if (f.id === 'push-api-key') {
-        const hint = document.getElementById('image-host-hint');
-        if (hint) hint.textContent = el.value.trim() ? '' : '未配置图片上传：请在发布工坊的连接配置里填写推送 API Key（本地照片将直传公众号素材库），或部署在线图床。';
+        document.dispatchEvent(new CustomEvent('md2wx:push-key-changed'));
       }
     });
   }
@@ -845,10 +844,9 @@ function bindEvents() {
   const imageHostHint = document.getElementById('image-host-hint');
   const imageUploadTrigger = document.getElementById('image-upload-trigger');
   const imageFileInput = document.getElementById('image-file-input');
-  const imageHostConfigured = isImageHostConfigured();
 
   /**
-   * 上传本地图片文件到图床并插入正文；未配置时提示不支持
+   * 上传本地图片：微信素材库直传（配置推送 Key 即可用）或在线图床，插入正文
    */
   async function handleImageUpload(file, altLabel = '图片') {
     if (!file) return;
@@ -857,27 +855,35 @@ function bindEvents() {
       showToast(precheck, 'error');
       return;
     }
-    if (!imageHostConfigured) {
+    // 每次动态判断（用户可能先开页面再去发布工坊填 Key，不能缓存加载时的状态）
+    if (!isImageHostConfigured()) {
       showToast(IMAGE_HOST_UNCONFIGURED_HINT, 'error');
       return;
     }
-    showToast('正在上传图片到图床…');
+    showToast('正在上传图片…');
     try {
       const url = await uploadImageFile(file);
       insertFormatting(`![${altLabel}](`, ')', url);
       showToast('图片已上传并插入正文');
     } catch (e) {
-      showToast(`图床上传失败: ${e.message || '未知错误'}`, 'error');
+      showToast(`图片上传失败: ${e.message || '未知错误'}`, 'error');
     }
   }
 
-  if (imageHostHint) {
-    imageHostHint.textContent = imageHostConfigured ? '' : IMAGE_HOST_UNCONFIGURED_HINT;
+  function refreshImageHostHint() {
+    const configured = isImageHostConfigured();
+    if (imageHostHint) {
+      imageHostHint.textContent = configured ? '' : IMAGE_HOST_UNCONFIGURED_HINT;
+    }
+    if (imageUploadTrigger) {
+      imageUploadTrigger.classList.toggle('is-disabled', !configured);
+      if (!configured) imageUploadTrigger.title = IMAGE_HOST_UNCONFIGURED_HINT;
+    }
+    return configured;
   }
-  if (imageUploadTrigger && !imageHostConfigured) {
-    imageUploadTrigger.classList.add('is-disabled');
-    imageUploadTrigger.title = IMAGE_HOST_UNCONFIGURED_HINT;
-  }
+  refreshImageHostHint();
+  // 发布工坊里改动推送 Key 后即时刷新图片菜单可用态
+  document.addEventListener('md2wx:push-key-changed', refreshImageHostHint);
 
   document.getElementById('tool-image').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -907,7 +913,7 @@ function bindEvents() {
     imageMenu?.classList.remove('show');
   });
   imageUploadTrigger?.addEventListener('click', () => {
-    if (!imageHostConfigured) {
+    if (!isImageHostConfigured()) {
       showToast(IMAGE_HOST_UNCONFIGURED_HINT, 'error');
       return;
     }
