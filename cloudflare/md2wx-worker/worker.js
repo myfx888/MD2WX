@@ -56,7 +56,9 @@ function resolveThemeId(theme) {
 
 function buildConvertResult(body) {
   const themeId = resolveThemeId(body.theme);
-  const html = markdownToWechatHtml(body.markdown, themeId);
+  // insert_cover 仅在显式传 false 时关闭（缺省 true，兼容旧调用方）
+  const insertCover = body.insert_cover !== false;
+  const html = markdownToWechatHtml(body.markdown, themeId, null, { insertCover });
   const { meta } = parseFrontmatter(body.markdown);
   return {
     code: 0,

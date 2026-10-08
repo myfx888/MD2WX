@@ -102,6 +102,15 @@ describe('POST /api/convert', () => {
     assert.ok(data.msg.includes('markdown'));
   });
 
+  it('缺省 insert_cover 时正文顶部插封面卡片；insert_cover:false 时不插', async () => {
+    const md = '---\ntitle: 封面卡测试\n---\n\n# 封面卡测试\n\n正文';
+    const d1 = await (await postJson('/api/convert', { markdown: md })).json();
+    const d2 = await (await postJson('/api/convert', { markdown: md, insert_cover: false })).json();
+    // 封面卡片含主题徽章文本（tech-blue 默认 TECH BLOG）
+    assert.ok(d1.html.includes('TECH BLOG'), '缺省应插封面卡片（含徽章）');
+    assert.ok(!d2.html.includes('TECH BLOG'), 'insert_cover:false 不应插封面卡片');
+  });
+
   it('非法 JSON 返回 400', async () => {
     const res = await worker.fetch(req('/api/convert', {
       method: 'POST',

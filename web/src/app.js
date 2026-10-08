@@ -732,6 +732,8 @@ function initPublishStudio() {
       appId: pushAppId,
       appSecret: pushSecret,
     });
+    // 与「排版微调」的封面开关语义统一：关闭时不让服务端在正文顶部插封面卡片
+    payload.insert_cover = insertCoverEnabled;
 
     try {
       const resp = await fetch(cfg.endpoint, {
