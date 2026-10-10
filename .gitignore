@@ -28,3 +28,6 @@ cloudflare/md2wx-worker/test/.figuremap.bundle.mjs
 
 # git worktrees
 .worktrees/
+
+# Mimosa 安全扫描状态
+.mimosa/
