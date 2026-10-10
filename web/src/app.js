@@ -20,7 +20,7 @@ import {
   validateImageFile,
   IMAGE_HOST_UNCONFIGURED_HINT,
 } from './core/imagehost.js';
-import { collectImageRefs, matchFiles, applyPreviewMap } from './core/figuremap.js';
+import { collectImageRefs, matchFiles, applyPreviewMap, replaceInMarkdown } from './core/figuremap.js';
 
 // 官方排版示范长文
 const DEFAULT_SAMPLE_ARTICLE = `---
@@ -641,6 +641,72 @@ function renderFigureDetails() {
   }).join('');
 }
 
+/**
+ * 批量上传:按 filePath 去重(同一文件多处引用只传一次),顺序请求,
+ * 单张失败不中断;结束后一次性把成功项写回源文本并触发重渲染。
+ */
+async function uploadFigureSession(onlyFailed = false) {
+  if (!figureSession || figureSession.uploading) return;
+  if (!isImageHostConfigured()) {
+    showToast(IMAGE_HOST_UNCONFIGURED_HINT, 'error');
+    return;
+  }
+  // 去重分组:filePath -> 参与的 items
+  const groups = new Map();
+  for (const it of figureSession.items) {
+    if (!it.file || it.upload === 'done') continue;
+    if (onlyFailed && it.upload !== 'failed') continue;
+    if (!groups.has(it.filePath)) groups.set(it.filePath, []);
+    groups.get(it.filePath).push(it);
+  }
+  const targets = [...groups.values()];
+  if (!targets.length) {
+    showToast(onlyFailed ? '没有失败项可重试' : '没有可上传的本地配图');
+    return;
+  }
+
+  figureSession.uploading = true;
+  figureSession.progress = { cur: 0, total: targets.length };
+  renderFigureBar();
+
+  const toReplace = new Map();
+  let ok = 0;
+  let fail = 0;
+  for (const group of targets) {
+    const head = group[0];
+    head.upload = 'uploading';
+    try {
+      const url = await uploadImageFile(head.file);
+      for (const it of group) {
+        it.upload = 'done';
+        it.wxUrl = url;
+        it.error = '';
+      }
+      toReplace.set(head.path, url);
+      ok++;
+    } catch (err) {
+      for (const it of group) {
+        it.upload = 'failed';
+        it.error = String(err.message || err);
+      }
+      fail++;
+    }
+    figureSession.progress.cur++;
+    renderFigureBar();
+  }
+
+  figureSession.uploading = false;
+  figureSession.progress = null;
+  if (toReplace.size) {
+    textarea.value = replaceInMarkdown(textarea.value, toReplace);
+    figureSession.uploaded += toReplace.size;
+    scheduleRender(); // 写回后这些路径离开 items,计数由 uploaded 保持
+  }
+  if (fail) showToast(`上传完成:成功 ${ok} · 失败 ${fail},可重试失败项`, 'error');
+  else showToast(`全部上传成功(共 ${ok} 张)`);
+  renderFigureBar();
+}
+
 /** 递归收集拖入目录的文件,返回 [{ file, path }];path 取 entry.fullPath 去首斜杠 */
 function collectEntryFiles(fsEntries) {
   const out = [];
@@ -1105,6 +1171,9 @@ function bindEvents() {
     if (t) t.textContent = figureSession.detailsOpen ? '明细 ▴' : '明细 ▾';
     renderFigureBar();
   });
+
+  document.getElementById('figure-upload-btn')?.addEventListener('click', () => uploadFigureSession(false));
+  document.getElementById('figure-retry-btn')?.addEventListener('click', () => uploadFigureSession(true));
 
   document.getElementById('tool-clear').addEventListener('click', () => {
     if (confirm('确定要清空当前的编辑器内容吗？')) {
