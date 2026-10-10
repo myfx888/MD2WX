@@ -243,3 +243,74 @@
   filter: brightness(1.08) saturate(1.05);
   box-shadow: 0 8px 26px rgba(16, 185, 129, 0.5);
 }
+
+/* ============================== 配图文件夹:状态条与明细浮层 ============================== */
+.figure-status-bar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background: #1f2937;
+  color: #f9fafb;
+  border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.figure-status-bar.show { display: flex; }
+.figure-bar-actions { display: inline-flex; gap: 8px; align-items: center; }
+.figure-bar-btn {
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: transparent;
+  color: #f9fafb;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.figure-bar-btn:hover { border-color: rgba(255, 255, 255, 0.7); }
+.figure-bar-btn-primary { background: #10b981; border-color: #10b981; }
+.figure-bar-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.figure-details-panel {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  width: min(520px, 92%);
+  max-height: 60%;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  padding: 10px;
+}
+.figure-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  border-bottom: 1px solid #f3f4f6;
+}
+.figure-detail-row:last-child { border-bottom: none; }
+.figure-detail-thumb {
+  width: 56px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #f3f4f6;
+  flex: none;
+}
+.figure-detail-path { flex: 1; font-size: 12px; color: #374151; word-break: break-all; }
+.figure-detail-badge { font-size: 11px; border-radius: 4px; padding: 2px 6px; white-space: nowrap; }
+.figure-badge-exact { background: #d1fae5; color: #065f46; }
+.figure-badge-filename { background: #dbeafe; color: #1e40af; }
+.figure-badge-unmatched { background: #f3f4f6; color: #6b7280; }
+.figure-badge-conflict { background: #fef3c7; color: #92400e; }
+.figure-badge-failed { background: #fee2e2; color: #991b1b; }
+.figure-badge-done { background: #d1fae5; color: #065f46; }

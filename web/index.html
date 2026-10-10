@@ -154,6 +154,7 @@
                   <button class="image-menu-btn" id="image-url-insert" type="button" title="插入图片链接">插入</button>
                 </div>
                 <button class="image-menu-upload" id="image-upload-trigger" type="button" title="选择本地图片上传到图床">上传本地图片（图床）</button>
+                <button class="image-menu-upload" id="figure-folder-trigger" type="button" title="载入本地配图文件夹:预览实时显示,检查后批量上传素材库替换">载入配图文件夹</button>
                 <div class="image-menu-hint" id="image-host-hint"></div>
               </div>
             </div>
@@ -177,6 +178,7 @@
           </div>
         </div>
         <input type="file" id="image-file-input" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
+        <input type="file" id="figure-folder-input" webkitdirectory multiple hidden />
 
         <!-- Editor Status Bar -->
         <footer class="editor-statusbar">
@@ -255,6 +257,17 @@
             <!-- Bottom Home Indicator -->
             <div class="phone-home-indicator"></div>
           </div>
+
+          <!-- 配图文件夹会话:状态条 + 明细浮层(载入文件夹后显示) -->
+          <div class="figure-status-bar" id="figure-status-bar">
+            <span id="figure-bar-text"></span>
+            <span class="figure-bar-actions">
+              <button class="figure-bar-btn" id="figure-details-toggle" type="button">明细 ▾</button>
+              <button class="figure-bar-btn" id="figure-retry-btn" type="button" hidden>重试失败项</button>
+              <button class="figure-bar-btn figure-bar-btn-primary" id="figure-upload-btn" type="button">上传素材库并替换</button>
+            </span>
+          </div>
+          <div class="figure-details-panel" id="figure-details-panel" hidden></div>
 
           <!-- Floating Action Button -->
           <div class="floating-actions">
