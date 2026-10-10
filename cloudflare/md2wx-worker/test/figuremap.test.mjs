@@ -3,7 +3,7 @@
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizePath, collectImageRefs } from './.figuremap.bundle.mjs';
+import { normalizePath, collectImageRefs, matchFiles } from './.figuremap.bundle.mjs';
 
 describe('normalizePath', () => {
   it('剥 ./ 前缀并统一分隔符', () => {
@@ -37,5 +37,43 @@ describe('collectImageRefs', () => {
   it('空输入返回空数组', () => {
     assert.deepEqual(collectImageRefs(''), []);
     assert.deepEqual(collectImageRefs(null), []);
+  });
+});
+
+describe('matchFiles', () => {
+  const files = [
+    { path: 'images/01.png', file: { name: '01.png' } },
+    { path: 'images/02.png', file: { name: '02.png' } },
+    { path: 'extra/03.png', file: { name: '03.png' } },
+  ];
+  it('精确路径命中并带 filePath', () => {
+    const m = matchFiles([{ path: 'images/01.png' }], files);
+    assert.equal(m.get('images/01.png').status, 'matched');
+    assert.equal(m.get('images/01.png').matchType, 'exact');
+    assert.equal(m.get('images/01.png').filePath, 'images/01.png');
+  });
+  it('./ 前缀与反斜杠归一化后精确命中', () => {
+    const m = matchFiles([{ path: './images\\01.png' }], files);
+    assert.equal(m.get('./images\\01.png').matchType, 'exact');
+  });
+  it('文件名在文件夹内唯一时回落命中', () => {
+    const m = matchFiles([{ path: '03.png' }], files);
+    assert.equal(m.get('03.png').status, 'matched');
+    assert.equal(m.get('03.png').matchType, 'filename');
+    assert.equal(m.get('03.png').filePath, 'extra/03.png');
+  });
+  it('重名冲突标记 conflict 并按路径排序列出候选', () => {
+    const fs2 = [...files, { path: 'backup/03.png', file: { name: '03.png' } }];
+    const m = matchFiles([{ path: '03.png' }], fs2);
+    assert.equal(m.get('03.png').status, 'conflict');
+    assert.deepEqual(m.get('03.png').conflicts, ['backup/03.png', 'extra/03.png']);
+  });
+  it('无候选标记 unmatched', () => {
+    const m = matchFiles([{ path: 'nope.png' }], files);
+    assert.equal(m.get('nope.png').status, 'unmatched');
+  });
+  it('大小写敏感:IMG.PNG 不命中 img.png', () => {
+    const m = matchFiles([{ path: 'IMG.PNG' }], [{ path: 'img.png', file: { name: 'img.png' } }]);
+    assert.equal(m.get('IMG.PNG').status, 'unmatched');
   });
 });

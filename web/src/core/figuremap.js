@@ -52,3 +52,40 @@ export function collectImageRefs(markdown) {
 
   return refs;
 }
+
+/**
+ * 智能匹配:第一轮归一化相对路径精确;第二轮 basename 唯一回落;同名多个 -> conflict。
+ * files: [{ path, file }](path 为文件夹内相对路径)。
+ * 返回 Map<rawPath, 结果>;结果恒含 status,matched 另含 file/filePath/matchType,
+ * conflict 另含 conflicts(排序后的候选路径数组)。
+ */
+export function matchFiles(refs, files) {
+  const result = new Map();
+  const byPath = new Map();
+  const byName = new Map();
+  for (const f of files) {
+    const np = normalizePath(f.path);
+    byPath.set(np, f);
+    const name = basename(np);
+    if (!byName.has(name)) byName.set(name, []);
+    byName.get(name).push(np);
+  }
+
+  for (const ref of refs) {
+    const np = normalizePath(ref.path);
+    if (byPath.has(np)) {
+      result.set(ref.path, { file: byPath.get(np).file, filePath: np, matchType: 'exact', status: 'matched' });
+      continue;
+    }
+    const candidates = (byName.get(basename(np)) || []).slice().sort();
+    if (candidates.length === 1) {
+      const hit = byPath.get(candidates[0]);
+      result.set(ref.path, { file: hit.file, filePath: candidates[0], matchType: 'filename', status: 'matched' });
+    } else if (candidates.length > 1) {
+      result.set(ref.path, { file: null, filePath: null, status: 'conflict', conflicts: candidates });
+    } else {
+      result.set(ref.path, { file: null, filePath: null, status: 'unmatched' });
+    }
+  }
+  return result;
+}
