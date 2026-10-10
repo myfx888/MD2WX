@@ -20,6 +20,7 @@ import {
   validateImageFile,
   IMAGE_HOST_UNCONFIGURED_HINT,
 } from './core/imagehost.js';
+import { collectImageRefs, matchFiles, applyPreviewMap } from './core/figuremap.js';
 
 // 官方排版示范长文
 const DEFAULT_SAMPLE_ARTICLE = `---
@@ -467,9 +468,12 @@ function renderPreview() {
     insertCover: insertCoverEnabled,
     coverMeta: currentCoverMeta,
   });
+  refreshFigureMatches();
+  currentHtmlOutput = applyFigurePreview(currentHtmlOutput);
   previewTarget.innerHTML = currentHtmlOutput;
 
   saveDraft(rawText);
+  renderFigureBar();
 }
 
 /**
@@ -504,6 +508,152 @@ function saveDraft(rawText) {
 function scheduleRender() {
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(renderPreview, 30);
+}
+
+// ============================== 配图文件夹会话 ==============================
+// blob URL 是会话性的:不持久化,刷新失效属预期;重新载入文件夹即可重建。
+// session = { files: Map<folderPath, File>, items: [...], uploaded: number, uploading: bool, progress: {cur,total}|null, detailsOpen: bool }
+let figureSession = null;
+
+const FIGURE_ACCEPT = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+const FIGURE_MAX_BYTES = 10 * 1024 * 1024;
+
+/** 载入文件夹(目录选择器与拖拽共用入口):过滤、匹配、建 blob URL、刷新渲染 */
+function loadFigureFolder(fileEntries) {
+  if (figureSession) {
+    for (const it of figureSession.items) {
+      if (it.blobUrl) URL.revokeObjectURL(it.blobUrl);
+    }
+  }
+  const files = new Map();
+  let skipped = 0;
+  for (const { file, path } of fileEntries) {
+    if (!FIGURE_ACCEPT.includes(file.type) || file.size > FIGURE_MAX_BYTES) { skipped++; continue; }
+    files.set(path, file);
+  }
+  figureSession = { files, items: [], uploaded: 0, uploading: false, progress: null, detailsOpen: false };
+  refreshFigureMatches();
+  if (skipped > 0) showToast(`已跳过 ${skipped} 个非图片或超 10MB 的文件`, 'error');
+  renderFigureBar();
+  scheduleRender();
+}
+
+/** 按当前编辑器文本重建匹配与 blob(上传状态按 路径+文件 保留),每次渲染前调用 */
+function refreshFigureMatches() {
+  if (!figureSession) return;
+  const prev = new Map(figureSession.items.map((it) => [it.path, it]));
+  const refs = collectImageRefs(textarea.value);
+  const entries = [...figureSession.files.entries()].map(([path, file]) => ({ path, file }));
+  const matchResult = matchFiles(refs, entries);
+  figureSession.items = refs.map((ref) => {
+    const m = matchResult.get(ref.path);
+    const old = prev.get(ref.path);
+    const keep = old && old.status === 'matched' && old.filePath === (m.filePath || null);
+    const item = {
+      path: ref.path,
+      filePath: m.filePath || null,
+      file: m.file || null,
+      blobUrl: keep ? old.blobUrl : (m.file ? URL.createObjectURL(m.file) : null),
+      status: m.status,
+      matchType: m.matchType || null,
+      conflicts: m.conflicts || null,
+      upload: keep ? old.upload : 'pending',
+      wxUrl: keep ? old.wxUrl : '',
+      error: keep ? old.error : '',
+    };
+    if (!keep && old && old.blobUrl && old.blobUrl !== item.blobUrl) {
+      URL.revokeObjectURL(old.blobUrl);
+    }
+    return item;
+  });
+}
+
+/** 预览 HTML 输出层的显示级替换(renderPreview 专属) */
+function applyFigurePreview(html) {
+  if (!figureSession) return html;
+  const blobMap = new Map();
+  for (const it of figureSession.items) {
+    if (it.blobUrl && it.upload !== 'done') blobMap.set(it.path, it.blobUrl);
+  }
+  return applyPreviewMap(html, blobMap);
+}
+
+/** 状态条 + 明细浮层渲染(figureSession 为空时隐藏) */
+function renderFigureBar() {
+  const bar = document.getElementById('figure-status-bar');
+  if (!bar) return;
+  if (!figureSession) { bar.classList.remove('show'); return; }
+  bar.classList.add('show');
+  const total = figureSession.items.length;
+  const unmatched = figureSession.items.filter((it) => it.status !== 'matched').length;
+  const text = document.getElementById('figure-bar-text');
+  if (text) {
+    text.textContent = figureSession.uploading
+      ? `上传中 ${figureSession.progress ? figureSession.progress.cur : 0}/${figureSession.progress ? figureSession.progress.total : 0}…`
+      : `本地配图 ${total} · 未匹配 ${unmatched} · 已上传 ${figureSession.uploaded}`;
+  }
+  const uploadBtn = document.getElementById('figure-upload-btn');
+  if (uploadBtn) {
+    uploadBtn.disabled = figureSession.uploading || !isImageHostConfigured();
+    uploadBtn.title = isImageHostConfigured() ? '' : IMAGE_HOST_UNCONFIGURED_HINT;
+  }
+  const failed = figureSession.items.filter((it) => it.upload === 'failed').length;
+  const retryBtn = document.getElementById('figure-retry-btn');
+  if (retryBtn) retryBtn.hidden = !failed || figureSession.uploading;
+  renderFigureDetails();
+}
+
+const FIGURE_BADGE = {
+  exact: ['exact', '精确'],
+  filename: ['filename', '文件名'],
+  unmatched: ['unmatched', '未匹配'],
+  conflict: ['conflict', '重名冲突'],
+};
+
+function renderFigureDetails() {
+  const panel = document.getElementById('figure-details-panel');
+  if (!panel) return;
+  panel.hidden = !figureSession || !figureSession.detailsOpen;
+  if (panel.hidden || !figureSession) return;
+  panel.innerHTML = figureSession.items.map((it) => {
+    let badge;
+    if (it.upload === 'failed') badge = '<span class="figure-detail-badge figure-badge-failed">失败</span>';
+    else if (it.upload === 'done') badge = '<span class="figure-detail-badge figure-badge-done">已上传 ✓</span>';
+    else if (it.status === 'matched') {
+      const [cls, label] = FIGURE_BADGE[it.matchType] || FIGURE_BADGE.exact;
+      badge = `<span class="figure-detail-badge figure-badge-${cls}">${label}</span>`;
+    } else if (it.status === 'conflict') {
+      badge = `<span class="figure-detail-badge figure-badge-conflict" title="${it.conflicts.join('、')}">重名冲突</span>`;
+    } else {
+      badge = '<span class="figure-detail-badge figure-badge-unmatched">未匹配</span>';
+    }
+    const thumbSrc = it.upload === 'done' && it.wxUrl ? it.wxUrl : (it.blobUrl || '');
+    return `<div class="figure-detail-row">` +
+      (thumbSrc ? `<img class="figure-detail-thumb" src="${thumbSrc}" alt="">` : '<span class="figure-detail-thumb"></span>') +
+      `<span class="figure-detail-path">${it.path}${it.upload === 'failed' ? ' — ' + it.error : ''}</span>${badge}</div>`;
+  }).join('');
+}
+
+/** 递归收集拖入目录的文件,返回 [{ file, path }];path 取 entry.fullPath 去首斜杠 */
+function collectEntryFiles(fsEntries) {
+  const out = [];
+  const walk = (entry) => new Promise((resolve) => {
+    if (entry.isFile) {
+      entry.file((f) => { out.push({ file: f, path: entry.fullPath.replace(/^\//, '') }); resolve(); }, () => resolve());
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      const readBatch = () => reader.readEntries(async (batch) => {
+        if (!batch.length) return resolve();
+        for (const child of batch) await walk(child);
+        readBatch(); // readEntries 单次上限约 100 条,读到空为止
+      }, () => resolve());
+      readBatch();
+    } else resolve();
+  });
+  return (async () => {
+    for (const en of fsEntries) await walk(en);
+    return out;
+  })();
 }
 
 /**
@@ -926,6 +1076,29 @@ function bindEvents() {
     imageMenu?.classList.remove('show');
   });
 
+  // 配图文件夹:目录选择器入口(拖拽入口见下方 drop handler 扩展)
+  const figureFolderTrigger = document.getElementById('figure-folder-trigger');
+  const figureFolderInput = document.getElementById('figure-folder-input');
+  figureFolderTrigger?.addEventListener('click', () => {
+    figureFolderInput?.click();
+  });
+  figureFolderInput?.addEventListener('change', () => {
+    const list = figureFolderInput.files;
+    figureFolderInput.value = '';
+    if (!list || !list.length) return;
+    const entries = [...list].map((f) => ({ file: f, path: f.webkitRelativePath || f.name }));
+    loadFigureFolder(entries);
+  });
+
+  // 状态条按钮:明细开关(上传/重试在 Task 6 接线)
+  document.getElementById('figure-details-toggle')?.addEventListener('click', () => {
+    if (!figureSession) return;
+    figureSession.detailsOpen = !figureSession.detailsOpen;
+    const t = document.getElementById('figure-details-toggle');
+    if (t) t.textContent = figureSession.detailsOpen ? '明细 ▴' : '明细 ▾';
+    renderFigureBar();
+  });
+
   document.getElementById('tool-clear').addEventListener('click', () => {
     if (confirm('确定要清空当前的编辑器内容吗？')) {
       textarea.value = '';
@@ -1006,9 +1179,23 @@ function bindEvents() {
     textareaWrapper.addEventListener('dragleave', () => {
       textareaWrapper.classList.remove('drag-over');
     });
-    textareaWrapper.addEventListener('drop', (e) => {
+    textareaWrapper.addEventListener('drop', async (e) => {
       e.preventDefault();
       textareaWrapper.classList.remove('drag-over');
+      // 目录项优先:含文件夹时整包走配图会话,单个图片文件走原直传
+      const items = e.dataTransfer?.items;
+      const entries = [];
+      if (items && items.length && items[0].webkitGetAsEntry) {
+        for (const item of items) {
+          const en = item.webkitGetAsEntry && item.webkitGetAsEntry();
+          if (en) entries.push(en);
+        }
+      }
+      if (entries.some((en) => en.isDirectory)) {
+        const collected = await collectEntryFiles(entries);
+        if (collected.length) loadFigureFolder(collected);
+        return;
+      }
       const files = e.dataTransfer?.files;
       if (files && files.length > 0) {
         const file = files[0];
