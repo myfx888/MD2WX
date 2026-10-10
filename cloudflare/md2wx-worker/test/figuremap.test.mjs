@@ -3,7 +3,7 @@
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizePath, collectImageRefs, matchFiles } from './.figuremap.bundle.mjs';
+import { normalizePath, collectImageRefs, matchFiles, applyPreviewMap, replaceInMarkdown } from './.figuremap.bundle.mjs';
 
 describe('normalizePath', () => {
   it('剥 ./ 前缀并统一分隔符', () => {
@@ -75,5 +75,48 @@ describe('matchFiles', () => {
   it('大小写敏感:IMG.PNG 不命中 img.png', () => {
     const m = matchFiles([{ path: 'IMG.PNG' }], [{ path: 'img.png', file: { name: 'img.png' } }]);
     assert.equal(m.get('IMG.PNG').status, 'unmatched');
+  });
+});
+
+describe('replaceInMarkdown', () => {
+  it('同一文件多处引用全部替换,保留 title', () => {
+    const md = '![a](img/1.png)\n![b](img/1.png "标题")\n![c](img/2.png)';
+    const out = replaceInMarkdown(md, new Map([['img/1.png', 'https://mmbiz.qpic.cn/x.png']]));
+    assert.equal(out, '![a](https://mmbiz.qpic.cn/x.png)\n![b](https://mmbiz.qpic.cn/x.png "标题")\n![c](img/2.png)');
+  });
+  it('子串路径不误伤(01.png 不动 101.png)', () => {
+    const md = '![a](101.png)';
+    const out = replaceInMarkdown(md, new Map([['01.png', 'https://wx/1.png']]));
+    assert.equal(out, '![a](101.png)');
+  });
+  it('路径作为更长路径中段时不误伤', () => {
+    const md = '![a](images/old-01.png)';
+    const out = replaceInMarkdown(md, new Map([['01.png', 'https://wx/1.png']]));
+    assert.equal(out, '![a](images/old-01.png)');
+  });
+  it('HTML img src 同步替换(单双引号)', () => {
+    const md = '<img src="img/1.png" alt="a"><img src=\'img/2.png\'>';
+    const out = replaceInMarkdown(md, new Map([['img/1.png', 'https://wx/1.png'], ['img/2.png', 'https://wx/2.png']]));
+    assert.equal(out, '<img src="https://wx/1.png" alt="a"><img src=\'https://wx/2.png\'>');
+  });
+  it('无匹配时原文返回', () => {
+    const md = '![a](other.png)';
+    assert.equal(replaceInMarkdown(md, new Map([['x.png', 'https://wx/x.png']])), md);
+  });
+  it('空 urlMap 原文返回', () => {
+    const md = '![a](other.png)';
+    assert.equal(replaceInMarkdown(md, new Map()), md);
+  });
+});
+
+describe('applyPreviewMap', () => {
+  it('把匹配路径换成 blob URL,未匹配保留原样', () => {
+    const html = '<p style="x">前言</p><img src="img/1.png" alt="a"><img src="img/9.png">';
+    const out = applyPreviewMap(html, new Map([['img/1.png', 'blob:http://localhost/abc']]));
+    assert.equal(out, '<p style="x">前言</p><img src="blob:http://localhost/abc" alt="a"><img src="img/9.png">');
+  });
+  it('空 Map 原文返回', () => {
+    const html = '<img src="img/1.png">';
+    assert.equal(applyPreviewMap(html, new Map()), html);
   });
 });

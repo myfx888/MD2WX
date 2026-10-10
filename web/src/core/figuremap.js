@@ -89,3 +89,44 @@ export function matchFiles(refs, files) {
   }
   return result;
 }
+
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** 替换值里的 $ 转义,避免 String.replace 的 $&/$1 语义吞字符 */
+function escapeReplacement(s) {
+  return String(s).replace(/\$/g, '$$$$');
+}
+
+/** html 中替换 src="path" / src='path'(预览层与源文本 html 形态共用) */
+function replacePathInHtml(html, path, newUrl) {
+  const re = new RegExp(`(src=)(["'])${escapeRegExp(path)}\\2`, 'g');
+  return html.replace(re, (_m, eq, q) => `${eq}${q}${newUrl}${q}`);
+}
+
+/**
+ * 显示级替换:html 字符串里匹配路径的 src -> blob URL。仅用于预览渲染,不触碰编辑器文本。
+ */
+export function applyPreviewMap(html, blobUrlMap) {
+  let out = String(html || '');
+  for (const [path, blobUrl] of blobUrlMap) {
+    out = replacePathInHtml(out, path, blobUrl);
+  }
+  return out;
+}
+
+/**
+ * 源文本替换:urlMap 为 Map<rawPath, wxUrl>。
+ * 定界符:md 的 ](path) / (path "title")(title 保留),html 的 src="path";
+ * 子串路径(01.png vs 101.png)因定界符不会误伤。
+ */
+export function replaceInMarkdown(markdown, urlMap) {
+  let out = String(markdown || '');
+  for (const [path, url] of urlMap) {
+    out = replacePathInHtml(out, path, url);
+    const mdRe = new RegExp(`(\\]\\(\\s*)${escapeRegExp(path)}(\\s*(?:"[^"]*")?\\s*\\))`, 'g');
+    out = out.replace(mdRe, (_m, pre, post) => `${pre}${url}${post}`);
+  }
+  return out;
+}
