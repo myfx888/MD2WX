@@ -24,6 +24,7 @@ cloudflare/md2wx-worker/test/.worker.bundle.mjs
 .superpowers/
 cloudflare/md2wx-worker/test/.publish.bundle.mjs
 cloudflare/md2wx-worker/test/.custom.bundle.mjs
+cloudflare/md2wx-worker/test/.figuremap.bundle.mjs
 
 # git worktrees
 .worktrees/

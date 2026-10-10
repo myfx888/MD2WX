@@ -520,6 +520,10 @@ const FIGURE_MAX_BYTES = 10 * 1024 * 1024;
 
 /** 载入文件夹(目录选择器与拖拽共用入口):过滤、匹配、建 blob URL、刷新渲染 */
 function loadFigureFolder(fileEntries) {
+  if (figureSession && figureSession.uploading) {
+    showToast('正在上传,请等待完成后再载入文件夹', 'error');
+    return;
+  }
   if (figureSession) {
     for (const it of figureSession.items) {
       if (it.blobUrl) URL.revokeObjectURL(it.blobUrl);
@@ -541,6 +545,7 @@ function loadFigureFolder(fileEntries) {
 /** 按当前编辑器文本重建匹配与 blob(上传状态按 路径+文件 保留),每次渲染前调用 */
 function refreshFigureMatches() {
   if (!figureSession) return;
+  if (figureSession.uploading) return; // 上传进行中:快照状态以会话对象为准,避免重建丢失败态
   const prev = new Map(figureSession.items.map((it) => [it.path, it]));
   const refs = collectImageRefs(textarea.value);
   const entries = [...figureSession.files.entries()].map(([path, file]) => ({ path, file }));
