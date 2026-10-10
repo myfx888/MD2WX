@@ -610,6 +610,13 @@ const FIGURE_BADGE = {
   conflict: ['conflict', '重名冲突'],
 };
 
+/** HTML 转义(明细浮层 innerHTML 插值用):& < > " ' 全覆盖 */
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function renderFigureDetails() {
   const panel = document.getElementById('figure-details-panel');
   if (!panel) return;
@@ -623,14 +630,14 @@ function renderFigureDetails() {
       const [cls, label] = FIGURE_BADGE[it.matchType] || FIGURE_BADGE.exact;
       badge = `<span class="figure-detail-badge figure-badge-${cls}">${label}</span>`;
     } else if (it.status === 'conflict') {
-      badge = `<span class="figure-detail-badge figure-badge-conflict" title="${it.conflicts.join('、')}">重名冲突</span>`;
+      badge = `<span class="figure-detail-badge figure-badge-conflict" title="${escapeHtml(it.conflicts.join('、'))}">重名冲突</span>`;
     } else {
       badge = '<span class="figure-detail-badge figure-badge-unmatched">未匹配</span>';
     }
     const thumbSrc = it.upload === 'done' && it.wxUrl ? it.wxUrl : (it.blobUrl || '');
     return `<div class="figure-detail-row">` +
-      (thumbSrc ? `<img class="figure-detail-thumb" src="${thumbSrc}" alt="">` : '<span class="figure-detail-thumb"></span>') +
-      `<span class="figure-detail-path">${it.path}${it.upload === 'failed' ? ' — ' + it.error : ''}</span>${badge}</div>`;
+      (thumbSrc ? `<img class="figure-detail-thumb" src="${escapeHtml(thumbSrc)}" alt="">` : '<span class="figure-detail-thumb"></span>') +
+      `<span class="figure-detail-path">${escapeHtml(it.path)}${it.upload === 'failed' ? ' — ' + escapeHtml(it.error) : ''}</span>${badge}</div>`;
   }).join('');
 }
 
