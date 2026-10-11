@@ -74,3 +74,31 @@ export function extractThemeCoverCopy(themeDef) {
   }
   return Object.keys(out).length ? out : null;
 }
+
+/**
+ * 五层解析链合并(每元素独立):
+ *   主题 coverCopy > 全局默认 > 内置预设(badgeText/defaultTag)> 硬编码兜底。
+ * preset 为 THEME_COVER_PRESETS[baseThemeId](可 null);store 不可用时全局层静默跳过。
+ */
+export function resolveCoverCopy({ themeDef, store, preset }) {
+  const themeCopy = extractThemeCoverCopy(themeDef) || {};
+  const globalCopy = readCoverDefaults(store) || {};
+  const presetCopy = preset && typeof preset === 'object'
+    ? { badge: preset.badgeText, tag: preset.defaultTag }
+    : {};
+  const out = {};
+  for (const k of COPY_KEYS) {
+    out[k] = themeCopy[k] || globalCopy[k] || presetCopy[k] || DEFAULT_FALLBACK[k];
+  }
+  return out;
+}
+
+/** 仅当 meta 中该元素为空时填入 resolved 值;返回新对象,不修改入参 */
+export function applyCoverCopyToMeta(meta, resolved) {
+  const base = meta && typeof meta === 'object' ? meta : {};
+  const out = { ...base };
+  for (const k of COPY_KEYS) {
+    if (!out[k]) out[k] = resolved[k];
+  }
+  return out;
+}
