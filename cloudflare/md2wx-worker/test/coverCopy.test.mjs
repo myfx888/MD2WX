@@ -7,6 +7,7 @@ import {
   readCoverDefaults, writeCoverDefaults, extractThemeCoverCopy, DEFAULT_FALLBACK,
   resolveCoverCopy, applyCoverCopyToMeta,
 } from './.coverCopy.bundle.mjs';
+import { extractCoverMeta, resolveForThemeId } from './.cover.bundle.mjs';
 
 /** 内存版 localStorage 桩(store 参数注入用) */
 function memStore() {
@@ -120,5 +121,45 @@ describe('applyCoverCopyToMeta', () => {
   });
   it('meta 为 null/undefined 安全返回空对象填充', () => {
     assert.deepEqual(applyCoverCopyToMeta(null, { badge: 'B', tag: 'T', author: 'A' }), { badge: 'B', tag: 'T', author: 'A' });
+  });
+});
+
+describe('extractCoverMeta 兼容红线(Task 3 后生效)', () => {
+  it('无任何配置时输出与现状硬编码一致', () => {
+    const m = extractCoverMeta('# T\n\n正文', 'tech-blue', { store: memStore() });
+    assert.equal(m.author, '万舟智算');
+    assert.equal(m.badge, 'WZZS');
+    assert.equal(m.tag, '万舟智算 · 教程系列');
+  });
+  it('自定义主题 coverCopy 生效且逐元素独立', () => {
+    const m = extractCoverMeta('---\nauthor: 文章作者\n---\n# T', 'custom-abc', {
+      store: memStore(),
+      getCustomTheme: (id) => (id === 'custom-abc'
+        ? { baseId: 'acid-bold', name: 'X', override: {}, coverCopy: { badge: 'TB', tag: 'TT' } }
+        : null),
+    });
+    assert.equal(m.author, '文章作者');
+    assert.equal(m.badge, 'TB');
+    assert.equal(m.tag, 'TT');
+  });
+  it('全局默认压过内置预设', () => {
+    const s = memStore();
+    writeCoverDefaults(s, { badge: 'GB' });
+    const m = extractCoverMeta('# T', 'tech-blue', { store: s });
+    assert.equal(m.badge, 'GB');
+  });
+});
+
+describe('resolveForThemeId', () => {
+  it('内置主题走预设层', () => {
+    const r = resolveForThemeId('tech-blue', memStore());
+    assert.deepEqual(r, { badge: 'WZZS', tag: '万舟智算 · 教程系列', author: '万舟智算' });
+  });
+  it('custom- 主题经 getCustomTheme 注入 themeDef', () => {
+    const r = resolveForThemeId('custom-abc', memStore(), (id) => (
+      id === 'custom-abc' ? { baseId: 'acid-bold', coverCopy: { badge: 'TB' } } : null
+    ));
+    assert.equal(r.badge, 'TB');
+    assert.equal(r.tag, '态度发声 · 拒绝平庸');
   });
 });

@@ -7,6 +7,7 @@
  */
 
 import { parseFrontmatter, stripMarkdown, escapeHtml } from './parser.js';
+import { resolveCoverCopy } from './coverCopy.js';
 
 // 封面推荐逻辑尺寸配置
 export const COVER_DIMENSIONS = {
@@ -82,9 +83,24 @@ export const THEME_COVER_PRESETS = {
 };
 
 /**
+ * 按主题 ID 解析默认文案(五层链):custom- 前缀主题经 getCustomThemeResolver
+ * 取主题定义(其 coverCopy 层生效),否则仅内置预设层。store 可注入,Node 可测。
+ */
+export function resolveForThemeId(themeId, store = null, getCustomThemeResolver = null) {
+  let themeDef = null;
+  let preset = THEME_COVER_PRESETS[themeId] || null;
+  if (themeId && String(themeId).startsWith('custom-')) {
+    themeDef = getCustomThemeResolver ? getCustomThemeResolver(themeId) : null;
+    const baseId = themeDef && themeDef.baseId;
+    preset = THEME_COVER_PRESETS[baseId] || null;
+  }
+  return resolveCoverCopy({ themeDef, store, preset });
+}
+
+/**
  * 从 Markdown 文本中自动智能提取封面元数据
  */
-export function extractCoverMeta(markdownText, themeId = 'tech-blue') {
+export function extractCoverMeta(markdownText, themeId = 'tech-blue', { store = null, getCustomTheme: getCustomThemeResolver = null } = {}) {
   const { meta, body } = parseFrontmatter(markdownText || '');
   const preset = THEME_COVER_PRESETS[themeId] || THEME_COVER_PRESETS['tech-blue'];
 
@@ -112,16 +128,17 @@ export function extractCoverMeta(markdownText, themeId = 'tech-blue') {
     }
   }
 
-  // 3. 提取作者与标签
-  let author = meta.author || '万舟智算';
-  let tag = Array.isArray(meta.tags) && meta.tags.length > 0 ? meta.tags.join(' · ') : preset.defaultTag;
+  // 3. 提取作者与标签(五层解析链:frontmatter > 主题coverCopy > 全局默认 > 内置预设 > 兜底)
+  const resolved = resolveForThemeId(themeId, store, getCustomThemeResolver);
+  const author = meta.author || resolved.author;
+  const tag = Array.isArray(meta.tags) && meta.tags.length > 0 ? meta.tags.join(' · ') : resolved.tag;
 
   return {
     title: title.slice(0, 36),
     digest: digest.slice(0, 60),
     author: author.slice(0, 16),
     tag: tag.slice(0, 24),
-    badge: preset.badgeText,
+    badge: resolved.badge,
     vol: preset.volText,
     website: 'MD2WX.ZANEVEN.COM'
   };
