@@ -1781,17 +1781,17 @@ function initThemeStudio() {
   if (!overlay || !builtinList) return;
 
   // 工坊内编辑态（与全局 currentThemeId 解耦）
-  let editing = null; // { id, baseId, name, override }
+  let editing = null; // { id, baseId, name, override, coverCopy }
 
   // ============ 编辑面板标签页：颜色 | 排版 | 组件样式 ============
   // 把既有「主题名称/颜色」归入颜色 tab，排版（含字体栈）归入排版 tab，
   // 组件样式区块由本函数动态构建。名称输入在所有 tab 上共享（置于 tab 条上方）。
   const tabsBar = document.createElement('div');
   tabsBar.className = 'ts-tabs';
-  tabsBar.innerHTML = ['颜色', '排版', '组件样式'].map((t, i) =>
+  tabsBar.innerHTML = ['颜色', '排版', '组件样式', '封面文案'].map((t, i) =>
     `<button type="button" class="ts-tab ${i === 0 ? 'active' : ''}" data-tab="${i}">${t}</button>`
   ).join('');
-  const tabPages = [document.createElement('div'), document.createElement('div'), document.createElement('div')];
+  const tabPages = [document.createElement('div'), document.createElement('div'), document.createElement('div'), document.createElement('div')];
   tabPages.forEach((p, i) => { p.className = 'ts-tab-page' + (i === 0 ? ' active' : ''); p.hidden = i !== 0; });
   const editorEl = editor; // #ts-editor
   // 名称字段挪到 tab 条上方（保留原节点）
@@ -1807,6 +1807,16 @@ function initThemeStudio() {
   stylesField.className = 'ts-field';
   stylesField.innerHTML = '<label class="settings-label">组件样式（视觉骨架变体）</label><div class="ts-styles-row" id="ts-styles-row"></div>';
   tabPages[2].appendChild(stylesField);
+  // tab3：封面默认文案（主题层 coverCopy：badge/tag/author）
+  const coverCopyField = document.createElement('div');
+  coverCopyField.className = 'ts-field';
+  coverCopyField.innerHTML =
+    '<label class="ts-label">封面默认文案（选此主题时封面预填，仅自定义主题生效）</label>' +
+    '<input type="text" class="ts-input" id="ts-cover-badge" placeholder="徽章，如 MYBRAND（留空走全局默认）">' +
+    '<input type="text" class="ts-input" id="ts-cover-tag" placeholder="默认标签，如 深度架构 · 极客手记">' +
+    '<input type="text" class="ts-input" id="ts-cover-author" placeholder="作者 / 品牌落款">' +
+    '<div class="ts-cover-copy-hint" id="ts-cover-copy-hint" style="display:none;color:#a1a1aa;font-size:12px;margin-top:4px;">内置主题的封面文案预设由代码维护，不可编辑</div>';
+  tabPages[3].appendChild(coverCopyField);
   tabPages.forEach((p) => editorEl.appendChild(p));
   tabsBar.addEventListener('click', (e) => {
     const btn = e.target.closest('.ts-tab');
@@ -1816,6 +1826,10 @@ function initThemeStudio() {
     tabPages.forEach((p, i) => { p.classList.toggle('active', i === idx); p.hidden = i !== idx; });
   });
   const stylesRow = stylesField.querySelector('#ts-styles-row');
+  const tsCoverBadge = coverCopyField.querySelector('#ts-cover-badge');
+  const tsCoverTag = coverCopyField.querySelector('#ts-cover-tag');
+  const tsCoverAuthor = coverCopyField.querySelector('#ts-cover-author');
+  const tsCoverCopyHint = coverCopyField.querySelector('#ts-cover-copy-hint');
 
   // ============ 组件样式下拉（一次性构建） ============
   const styleSelects = {};
@@ -1897,6 +1911,13 @@ function initThemeStudio() {
     renderPreviewPane();
   }
 
+  // 编辑对象是否直接指向内置主题（防御分支：现有 UI 中内置主题仅可「复制为自定义」，
+  // 不存在直接编辑内置的入口；一旦出现该形态则封面文案只读）
+  function isBuiltinEditing() {
+    if (!editing) return false;
+    return editing.id != null && !String(editing.id).startsWith('custom-');
+  }
+
   function renderPreviewPane() {
     previewTarget.innerHTML = markdownToWechatHtml(PREVIEW_SAMPLE, editing.baseId, editing.override, { linkToFootnote: false, insertCover: false });
   }
@@ -1926,6 +1947,13 @@ function initThemeStudio() {
         || comp.variants[0].id;
       styleSelects[comp.key].value = cur;
     }
+    // 回填封面默认文案：内置主题只读（提示 + disabled），自定义主题可编辑
+    const builtinMode = isBuiltinEditing();
+    tsCoverCopyHint.style.display = builtinMode ? '' : 'none';
+    tsCoverBadge.disabled = tsCoverTag.disabled = tsCoverAuthor.disabled = builtinMode;
+    tsCoverBadge.value = builtinMode ? '' : (editing.coverCopy && editing.coverCopy.badge) || '';
+    tsCoverTag.value = builtinMode ? '' : (editing.coverCopy && editing.coverCopy.tag) || '';
+    tsCoverAuthor.value = builtinMode ? '' : (editing.coverCopy && editing.coverCopy.author) || '';
     renderPreviewPane();
   }
 
@@ -1937,7 +1965,7 @@ function initThemeStudio() {
       item.innerHTML = `<span class="ts-dot" style="background:${t.colors?.accent || '#2563eb'}"></span><span class="ts-theme-name">${t.name}</span><button class="ts-item-btn" type="button">复制为自定义</button>`;
       item.querySelector('button').addEventListener('click', (e) => {
         e.stopPropagation();
-        editing = { id: null, baseId: t.id, name: t.name.split('(')[0].trim() + ' 自定义', override: {} };
+        editing = { id: null, baseId: t.id, name: t.name.split('(')[0].trim() + ' 自定义', override: {}, coverCopy: {} };
         editor.hidden = false;
         fillEditor();
       });
@@ -1961,7 +1989,7 @@ function initThemeStudio() {
       });
       btnEdit.addEventListener('click', (e) => {
         e.stopPropagation();
-        editing = { id: c.id, baseId: full.baseId, name: full.name, override: JSON.parse(JSON.stringify(full.override)) };
+        editing = { id: c.id, baseId: full.baseId, name: full.name, override: JSON.parse(JSON.stringify(full.override)), coverCopy: full.coverCopy || {} };
         editor.hidden = false;
         fillEditor();
       });
@@ -2002,7 +2030,11 @@ function initThemeStudio() {
   btnSave.addEventListener('click', () => {
     if (!editing) return;
     editing.name = nameInput.value.trim() || editing.name;
-    const r = saveCustomTheme(editing.id, { baseId: editing.baseId, name: editing.name, override: editing.override });
+    const coverCopy = {};
+    if (tsCoverBadge.value.trim()) coverCopy.badge = tsCoverBadge.value.trim();
+    if (tsCoverTag.value.trim()) coverCopy.tag = tsCoverTag.value.trim();
+    if (tsCoverAuthor.value.trim()) coverCopy.author = tsCoverAuthor.value.trim();
+    const r = saveCustomTheme(editing.id, { baseId: editing.baseId, name: editing.name, override: editing.override, coverCopy });
     if (!r.ok) { showToast(r.error, 'error'); return; }
     showToast('主题已保存');
     if (!editing.id) editing.id = r.id; // 新建后续编辑沿用
@@ -2016,7 +2048,11 @@ function initThemeStudio() {
     if (!editing) return;
     // 未保存的编辑态先落盘再导出
     if (!editing.id) {
-      const r = saveCustomTheme(null, { baseId: editing.baseId, name: nameInput.value.trim() || editing.name, override: editing.override });
+      const coverCopy = {};
+      if (tsCoverBadge.value.trim()) coverCopy.badge = tsCoverBadge.value.trim();
+      if (tsCoverTag.value.trim()) coverCopy.tag = tsCoverTag.value.trim();
+      if (tsCoverAuthor.value.trim()) coverCopy.author = tsCoverAuthor.value.trim();
+      const r = saveCustomTheme(null, { baseId: editing.baseId, name: nameInput.value.trim() || editing.name, override: editing.override, coverCopy });
       if (!r.ok) { showToast(r.error, 'error'); return; }
       editing.id = r.id;
       renderLists();
