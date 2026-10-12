@@ -795,6 +795,13 @@ input:checked + .slider:before {
 .ts-theme-item.active {
   border-color: var(--accent, #2563eb);
   background: var(--accent-soft, #eff6ff);
+  /* 选中卡为浅色底，深色环境继承的白字会隐形——整体转深字 */
+  color: #1e293b;
+}
+
+.ts-theme-item.active .ts-theme-name {
+  color: #1e293b;
+  font-weight: 600;
 }
 
 .ts-dot {
