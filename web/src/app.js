@@ -484,6 +484,7 @@ function renderPreview() {
     linkToFootnote: enableFootnotes,
     insertCover: insertCoverEnabled,
     coverMeta: currentCoverMeta,
+    coverMetaOptions: coverMetaOptions(),
   });
   refreshFigureMatches();
   currentHtmlOutput = applyFigurePreview(currentHtmlOutput);

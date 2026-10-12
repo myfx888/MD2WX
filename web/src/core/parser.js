@@ -593,7 +593,7 @@ export function markdownToWechatHtml(mdText, themeName = DEFAULT_THEME_ID, custo
   // 微信公众号文章顶部自动嵌入当前主题封面卡片 (默认开启)
   const insertCover = renderOptions.insertCover !== false;
   if (insertCover) {
-    const coverMeta = renderOptions.coverMeta || extractCoverMeta(mdText, themeName);
+    const coverMeta = renderOptions.coverMeta || extractCoverMeta(mdText, themeName, renderOptions.coverMetaOptions || {});
     const headerCoverHtml = renderWechatArticleHeaderCover(themeName, coverMeta);
     if (headerCoverHtml) {
       htmlParts.push(headerCoverHtml);
