@@ -70,8 +70,8 @@ describe('extractThemeCoverCopy', () => {
 });
 
 describe('DEFAULT_FALLBACK', () => {
-  it('兜底三元组与现状硬编码一致', () => {
-    assert.deepEqual(DEFAULT_FALLBACK, { badge: 'WZZS', tag: '万舟智算 · 教程系列', author: '万舟智算' });
+  it('兜底四元组与现状硬编码一致', () => {
+    assert.deepEqual(DEFAULT_FALLBACK, { badge: 'WZZS', tag: '万舟智算 · 教程系列', author: '万舟智算', vol: '2026 · VOL.02' });
   });
 });
 
@@ -83,24 +83,25 @@ describe('resolveCoverCopy', () => {
     writeCoverDefaults(s, { tag: '全局标签', author: '全局作者' });
     const themeDef = { coverCopy: { badge: '主题徽章' } };
     const r = resolveCoverCopy({ themeDef, store: s, preset: PRESET });
-    assert.deepEqual(r, { badge: '主题徽章', tag: '全局标签', author: '全局作者' });
+    assert.deepEqual(r, { badge: '主题徽章', tag: '全局标签', author: '全局作者', vol: '2026 · VOL.01' });
   });
   it('全局默认压过内置预设(已确认语义)', () => {
     const s = memStore();
-    writeCoverDefaults(s, { badge: '全局徽章' });
+    writeCoverDefaults(s, { badge: '全局徽章', vol: '全局期号' });
     const r = resolveCoverCopy({ themeDef: null, store: s, preset: PRESET });
     assert.equal(r.badge, '全局徽章');
     assert.equal(r.tag, PRESET.defaultTag);
     assert.equal(r.author, DEFAULT_FALLBACK.author);
+    assert.equal(r.vol, '全局期号');
   });
   it('无任何配置:内置预设优先,缺项落兜底', () => {
     const s = memStore();
     const r = resolveCoverCopy({ themeDef: null, store: s, preset: PRESET });
-    assert.deepEqual(r, { badge: 'ACID BOLD', tag: '态度发声 · 拒绝平庸', author: '万舟智算' });
+    assert.deepEqual(r, { badge: 'ACID BOLD', tag: '态度发声 · 拒绝平庸', author: '万舟智算', vol: '2026 · VOL.01' });
   });
   it('preset 缺省(null)时全部落兜底', () => {
     const r = resolveCoverCopy({ themeDef: null, store: memStore(), preset: null });
-    assert.deepEqual(r, { badge: 'WZZS', tag: '万舟智算 · 教程系列', author: '万舟智算' });
+    assert.deepEqual(r, { badge: 'WZZS', tag: '万舟智算 · 教程系列', author: '万舟智算', vol: '2026 · VOL.02' });
   });
   it('themeDef 无 coverCopy 时等同 null', () => {
     const r = resolveCoverCopy({ themeDef: { baseId: 'x', override: {} }, store: memStore(), preset: PRESET });
@@ -109,18 +110,18 @@ describe('resolveCoverCopy', () => {
   it('store 不可用时跳过全局层不抛错', () => {
     const bad = { getItem() { throw new Error('x'); }, setItem() { throw new Error('x'); }, removeItem() { throw new Error('x'); } };
     const r = resolveCoverCopy({ themeDef: null, store: bad, preset: PRESET });
-    assert.deepEqual(r, { badge: 'ACID BOLD', tag: '态度发声 · 拒绝平庸', author: '万舟智算' });
+    assert.deepEqual(r, { badge: 'ACID BOLD', tag: '态度发声 · 拒绝平庸', author: '万舟智算', vol: '2026 · VOL.01' });
   });
 });
 
 describe('applyCoverCopyToMeta', () => {
   it('仅填空位,不覆盖显式值', () => {
     const meta = { author: '显式作者', badge: '' };
-    const out = applyCoverCopyToMeta(meta, { badge: 'B', tag: 'T', author: 'A' });
-    assert.deepEqual(out, { author: '显式作者', badge: 'B', tag: 'T' });
+    const out = applyCoverCopyToMeta(meta, { badge: 'B', tag: 'T', author: 'A', vol: 'V' });
+    assert.deepEqual(out, { author: '显式作者', badge: 'B', tag: 'T', vol: 'V' });
   });
   it('meta 为 null/undefined 安全返回空对象填充', () => {
-    assert.deepEqual(applyCoverCopyToMeta(null, { badge: 'B', tag: 'T', author: 'A' }), { badge: 'B', tag: 'T', author: 'A' });
+    assert.deepEqual(applyCoverCopyToMeta(null, { badge: 'B', tag: 'T', author: 'A', vol: 'V' }), { badge: 'B', tag: 'T', author: 'A', vol: 'V' });
   });
 });
 
@@ -130,17 +131,19 @@ describe('extractCoverMeta 兼容红线(Task 3 后生效)', () => {
     assert.equal(m.author, '万舟智算');
     assert.equal(m.badge, 'WZZS');
     assert.equal(m.tag, '万舟智算 · 教程系列');
+    assert.equal(m.vol, '2026 · VOL.02');
   });
   it('自定义主题 coverCopy 生效且逐元素独立', () => {
     const m = extractCoverMeta('---\nauthor: 文章作者\n---\n# T', 'custom-abc', {
       store: memStore(),
       getCustomTheme: (id) => (id === 'custom-abc'
-        ? { baseId: 'acid-bold', name: 'X', override: {}, coverCopy: { badge: 'TB', tag: 'TT' } }
+        ? { baseId: 'acid-bold', name: 'X', override: {}, coverCopy: { badge: 'TB', tag: 'TT', vol: 'TV' } }
         : null),
     });
     assert.equal(m.author, '文章作者');
     assert.equal(m.badge, 'TB');
     assert.equal(m.tag, 'TT');
+    assert.equal(m.vol, 'TV');
   });
   it('全局默认压过内置预设', () => {
     const s = memStore();
@@ -153,7 +156,7 @@ describe('extractCoverMeta 兼容红线(Task 3 后生效)', () => {
 describe('resolveForThemeId', () => {
   it('内置主题走预设层', () => {
     const r = resolveForThemeId('tech-blue', memStore());
-    assert.deepEqual(r, { badge: 'WZZS', tag: '万舟智算 · 教程系列', author: '万舟智算' });
+    assert.deepEqual(r, { badge: 'WZZS', tag: '万舟智算 · 教程系列', author: '万舟智算', vol: '2026 · VOL.02' });
   });
   it('custom- 主题经 getCustomTheme 注入 themeDef', () => {
     const r = resolveForThemeId('custom-abc', memStore(), (id) => (

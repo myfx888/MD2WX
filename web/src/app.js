@@ -1634,6 +1634,7 @@ function initCoverStudio() {
       badge: inputBadge.value,
       tag: inputTag.value,
       author: inputAuthor.value,
+      vol: inputVol.value,
     });
     showToast(readCoverDefaults(store)
       ? '已存为全局默认,所有主题的封面将预填此文案'
@@ -1642,7 +1643,8 @@ function initCoverStudio() {
   btnClearDefaults?.addEventListener('click', () => {
     const store = typeof localStorage !== 'undefined' ? localStorage : null;
     if (!store) { showToast('当前环境存储不可用', 'error'); return; }
-    writeCoverDefaults(store, {});
+    // 写入合并语义:全空串覆盖旧值后被剔除 → 整键删除,实现"清除"
+    writeCoverDefaults(store, { badge: '', tag: '', author: '', vol: '' });
     showToast('已清除全局默认,回到内置主题预设');
   });
 
@@ -1850,6 +1852,8 @@ function initThemeStudio() {
     '<input type="text" class="settings-input" id="ts-cover-tag" placeholder="如 深度架构 · 极客手记" autocomplete="off"></div>' +
     '<div class="ts-copy-row"><label class="settings-label" for="ts-cover-author">作者 / 品牌落款</label>' +
     '<input type="text" class="settings-input" id="ts-cover-author" placeholder="如 万舟智算" autocomplete="off"></div>' +
+    '<div class="ts-copy-row"><label class="settings-label" for="ts-cover-vol">期号 / 年份</label>' +
+    '<input type="text" class="settings-input" id="ts-cover-vol" placeholder="如 2026 · VOL.02" autocomplete="off"></div>' +
     '<div class="ts-cover-copy-hint" id="ts-cover-copy-hint" style="display:none;color:#a1a1aa;font-size:12px;">内置主题的封面文案预设由代码维护，不可编辑</div>';
   tabPages[3].appendChild(coverCopyField);
   tabPages.forEach((p) => editorEl.appendChild(p));
@@ -1864,6 +1868,7 @@ function initThemeStudio() {
   const tsCoverBadge = coverCopyField.querySelector('#ts-cover-badge');
   const tsCoverTag = coverCopyField.querySelector('#ts-cover-tag');
   const tsCoverAuthor = coverCopyField.querySelector('#ts-cover-author');
+  const tsCoverVol = coverCopyField.querySelector('#ts-cover-vol');
   const tsCoverCopyHint = coverCopyField.querySelector('#ts-cover-copy-hint');
 
   // ============ 组件样式下拉（一次性构建） ============
@@ -1985,10 +1990,11 @@ function initThemeStudio() {
     // 回填封面默认文案：内置主题只读（提示 + disabled），自定义主题可编辑
     const builtinMode = isBuiltinEditing();
     tsCoverCopyHint.style.display = builtinMode ? '' : 'none';
-    tsCoverBadge.disabled = tsCoverTag.disabled = tsCoverAuthor.disabled = builtinMode;
+    tsCoverBadge.disabled = tsCoverTag.disabled = tsCoverAuthor.disabled = tsCoverVol.disabled = builtinMode;
     tsCoverBadge.value = builtinMode ? '' : (editing.coverCopy && editing.coverCopy.badge) || '';
     tsCoverTag.value = builtinMode ? '' : (editing.coverCopy && editing.coverCopy.tag) || '';
     tsCoverAuthor.value = builtinMode ? '' : (editing.coverCopy && editing.coverCopy.author) || '';
+    tsCoverVol.value = builtinMode ? '' : (editing.coverCopy && editing.coverCopy.vol) || '';
     renderPreviewPane();
   }
 
@@ -2069,6 +2075,7 @@ function initThemeStudio() {
     if (tsCoverBadge.value.trim()) coverCopy.badge = tsCoverBadge.value.trim();
     if (tsCoverTag.value.trim()) coverCopy.tag = tsCoverTag.value.trim();
     if (tsCoverAuthor.value.trim()) coverCopy.author = tsCoverAuthor.value.trim();
+    if (tsCoverVol.value.trim()) coverCopy.vol = tsCoverVol.value.trim();
     const r = saveCustomTheme(editing.id, { baseId: editing.baseId, name: editing.name, override: editing.override, coverCopy });
     if (!r.ok) { showToast(r.error, 'error'); return; }
     showToast('主题已保存');
@@ -2087,6 +2094,7 @@ function initThemeStudio() {
       if (tsCoverBadge.value.trim()) coverCopy.badge = tsCoverBadge.value.trim();
       if (tsCoverTag.value.trim()) coverCopy.tag = tsCoverTag.value.trim();
       if (tsCoverAuthor.value.trim()) coverCopy.author = tsCoverAuthor.value.trim();
+      if (tsCoverVol.value.trim()) coverCopy.vol = tsCoverVol.value.trim();
       const r = saveCustomTheme(null, { baseId: editing.baseId, name: nameInput.value.trim() || editing.name, override: editing.override, coverCopy });
       if (!r.ok) { showToast(r.error, 'error'); return; }
       editing.id = r.id;

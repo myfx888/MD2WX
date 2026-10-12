@@ -129,14 +129,14 @@ export function getCustomTheme(id, store = defaultStore()) {
 function validCoverCopy(coverCopy) {
   if (coverCopy == null) return true;
   if (!coverCopy || typeof coverCopy !== 'object' || Array.isArray(coverCopy)) return false;
-  return Object.entries(coverCopy).every(([k, v]) => ['badge', 'tag', 'author'].includes(k) && (v == null || typeof v === 'string'));
+  return Object.entries(coverCopy).every(([k, v]) => ['badge', 'tag', 'author', 'vol'].includes(k) && (v == null || typeof v === 'string'));
 }
 
 export function saveCustomTheme(idOrNull, { baseId, name, override, coverCopy }, store = defaultStore()) {
   if (!BUILTIN_THEMES[baseId]) return { ok: false, error: `baseId 不存在: ${baseId}` };
   if (!name || !String(name).trim()) return { ok: false, error: 'name 必填' };
   if (!validOverride(override)) return { ok: false, error: 'override 仅允许 colors/typography 对象' };
-  if (!validCoverCopy(coverCopy)) return { ok: false, error: 'coverCopy 仅允许 badge/tag/author 字符串字段' };
+  if (!validCoverCopy(coverCopy)) return { ok: false, error: 'coverCopy 仅允许 badge/tag/author/vol 字符串字段' };
   const all = readAll(store);
   const id = idOrNull || genId();
   if (idOrNull && !all[idOrNull]) return { ok: false, error: `主题不存在: ${idOrNull}` };
@@ -174,7 +174,7 @@ export function importCustomTheme(jsonStr, store = defaultStore()) {
     return { ok: false, error: 'JSON 解析失败' };
   }
   if (parsed.coverCopy !== undefined && !validCoverCopy(parsed.coverCopy)) {
-    return { ok: false, error: 'coverCopy 仅允许 badge/tag/author 字符串字段' };
+    return { ok: false, error: 'coverCopy 仅允许 badge/tag/author/vol 字符串字段' };
   }
   const check = saveCustomTheme(null, { baseId: parsed.baseId, name: parsed.name, override: parsed.override, coverCopy: parsed.coverCopy }, store);
   if (!check.ok) return check;

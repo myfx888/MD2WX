@@ -11,9 +11,10 @@ export const DEFAULT_FALLBACK = Object.freeze({
   badge: 'WZZS',
   tag: '万舟智算 · 教程系列',
   author: '万舟智算',
+  vol: '2026 · VOL.02',
 });
 
-const COPY_KEYS = ['badge', 'tag', 'author'];
+const COPY_KEYS = ['badge', 'tag', 'author', 'vol'];
 
 function safeStore(store) {
   try {
@@ -48,7 +49,7 @@ export function readCoverDefaults(store) {
   return Object.keys(out).length ? out : null;
 }
 
-/** 全局默认写入:空串字段剔除;三个全空即删键;存储不可用静默 */
+/** 全局默认写入:空串字段剔除;全部为空即删键;存储不可用静默 */
 export function writeCoverDefaults(store, partial) {
   if (!store || !safeStore(store)) return;
   const merged = { ...(readCoverDefaults(store) || {}), ...(partial || {}) };
@@ -77,14 +78,14 @@ export function extractThemeCoverCopy(themeDef) {
 
 /**
  * 五层解析链合并(每元素独立):
- *   主题 coverCopy > 全局默认 > 内置预设(badgeText/defaultTag)> 硬编码兜底。
+ *   主题 coverCopy > 全局默认 > 内置预设(badgeText/defaultTag/volText)> 硬编码兜底。
  * preset 为 THEME_COVER_PRESETS[baseThemeId](可 null);store 不可用时全局层静默跳过。
  */
 export function resolveCoverCopy({ themeDef, store, preset }) {
   const themeCopy = extractThemeCoverCopy(themeDef) || {};
   const globalCopy = readCoverDefaults(store) || {};
   const presetCopy = preset && typeof preset === 'object'
-    ? { badge: preset.badgeText, tag: preset.defaultTag }
+    ? { badge: preset.badgeText, tag: preset.defaultTag, vol: preset.volText }
     : {};
   const out = {};
   for (const k of COPY_KEYS) {

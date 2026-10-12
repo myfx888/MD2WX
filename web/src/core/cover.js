@@ -102,7 +102,6 @@ export function resolveForThemeId(themeId, store = null, getCustomThemeResolver 
  */
 export function extractCoverMeta(markdownText, themeId = 'tech-blue', { store = null, getCustomTheme: getCustomThemeResolver = null } = {}) {
   const { meta, body } = parseFrontmatter(markdownText || '');
-  const preset = THEME_COVER_PRESETS[themeId] || THEME_COVER_PRESETS['tech-blue'];
 
   // 1. 提取标题
   let title = meta.title || '';
@@ -139,7 +138,7 @@ export function extractCoverMeta(markdownText, themeId = 'tech-blue', { store = 
     author: author.slice(0, 16),
     tag: tag.slice(0, 24),
     badge: resolved.badge,
-    vol: preset.volText,
+    vol: resolved.vol,
     website: 'MD2WX.ZANEVEN.COM'
   };
 }
