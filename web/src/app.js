@@ -1425,6 +1425,12 @@ function initCoverStudio() {
   let coverThemeId = currentThemeId;
   let coverRatio = 'banner'; // 'banner' (2.35:1) | 'square' (1:1)
   let showSafeGuide = false; // 微信 1:1 裁切与安全线默认关闭，避免遮挡预览
+
+  // 自定义主题 → 渲染用 baseId：视觉骨架与内置预设走 baseId，
+  // 文案解析（extractCoverMeta）仍传完整 id 以走 coverCopy 解析链
+  const resolveCoverBase = (id) => (id && String(id).startsWith('custom-')
+    ? (getCustomTheme(id)?.baseId || 'tech-blue')
+    : id);
   let coverMeta = {};
 
   const shareTitleEl = document.getElementById('preview-share-title');
@@ -1473,7 +1479,7 @@ function initCoverStudio() {
   function renderCover() {
     if (!renderTarget) return;
     currentCoverMeta = { ...coverMeta };
-    renderTarget.innerHTML = renderCoverHtml(coverThemeId, coverRatio, coverMeta, showSafeGuide);
+    renderTarget.innerHTML = renderCoverHtml(resolveCoverBase(coverThemeId), coverRatio, coverMeta, showSafeGuide);
 
     const dim = COVER_DIMENSIONS[coverRatio] || COVER_DIMENSIONS.banner;
     const exportW = dim.width * 2;
@@ -1486,7 +1492,7 @@ function initCoverStudio() {
     if (shareTitleEl) shareTitleEl.textContent = coverMeta.title || '文章标题';
     if (shareDigestEl) shareDigestEl.textContent = coverMeta.digest || '真正的专注，是在充满干扰的世界中守住内心的秩序。';
     if (shareThumbEl) {
-      const preset = THEME_COVER_PRESETS[coverThemeId] || THEME_COVER_PRESETS['tech-blue'];
+      const preset = THEME_COVER_PRESETS[resolveCoverBase(coverThemeId)] || THEME_COVER_PRESETS['tech-blue'];
       shareThumbEl.innerHTML = `
         <div style="width:100%;height:100%;background:#0a0a0a;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:4px;gap:2px;">
           <span style="font-size:9px;font-weight:900;color:#34d399;line-height:1;">${(preset.badgeText || 'COVER').slice(0, 6)}</span>
@@ -1502,7 +1508,27 @@ function initCoverStudio() {
   function openCoverModal() {
     coverThemeId = currentThemeId;
     if (selectThemeEl) {
+      // 动态注入「我的自定义主题」分组（内置 9 项写死于 HTML），使自定义主题可选
+      selectThemeEl.querySelector('optgroup[data-custom]')?.remove();
+      const customs = listCustomThemes();
+      if (customs.length) {
+        const og = document.createElement('optgroup');
+        og.setAttribute('label', '我的自定义主题');
+        og.setAttribute('data-custom', '1');
+        for (const c of customs) {
+          const opt = document.createElement('option');
+          opt.value = c.id;
+          opt.textContent = `${c.name}（自定义）`;
+          og.appendChild(opt);
+        }
+        selectThemeEl.appendChild(og);
+      }
       selectThemeEl.value = coverThemeId;
+      if (selectThemeEl.value !== coverThemeId) {
+        // 兜底：id 不在列表（如主题已被删除）→ 回落视觉基座
+        coverThemeId = resolveCoverBase(coverThemeId);
+        selectThemeEl.value = coverThemeId;
+      }
     }
     refreshMetaFromArticle();
     overlay.classList.add('active');
@@ -1577,11 +1603,16 @@ function initCoverStudio() {
   // 主题切换
   selectThemeEl.addEventListener('change', (e) => {
     coverThemeId = e.target.value;
-    const preset = THEME_COVER_PRESETS[coverThemeId];
-    if (preset) {
-      coverMeta.badge = preset.badgeText;
-      coverMeta.vol = preset.volText;
-      syncFormInputs();
+    if (String(coverThemeId).startsWith('custom-')) {
+      // 自定义主题：badge/tag/author 走该主题 coverCopy + 全局默认链，整体重提取
+      refreshMetaFromArticle();
+    } else {
+      const preset = THEME_COVER_PRESETS[coverThemeId];
+      if (preset) {
+        coverMeta.badge = preset.badgeText;
+        coverMeta.vol = preset.volText;
+        syncFormInputs();
+      }
     }
     renderCover();
   });
@@ -1674,7 +1705,7 @@ function initCoverStudio() {
         width: dim.width,
         height: dim.height,
         scale: 2,
-        themeId: coverThemeId,
+        themeId: resolveCoverBase(coverThemeId),
         ratio: coverRatio,
         meta: { ...coverMeta }
       });
@@ -1726,12 +1757,12 @@ function initCoverStudio() {
         width: dim.width,
         height: dim.height,
         scale: 2,
-        themeId: coverThemeId,
+        themeId: resolveCoverBase(coverThemeId),
         ratio: coverRatio,
         meta: { ...coverMeta }
       });
 
-      const filename = `md2wx-cover-${coverThemeId}-${coverRatio}.png`;
+      const filename = `md2wx-cover-${resolveCoverBase(coverThemeId)}-${coverRatio}.png`;
       downloadImageBlob(blob, filename);
       showToast(`已开始下载高清封面: ${filename}`, 'success');
     } catch (err) {
