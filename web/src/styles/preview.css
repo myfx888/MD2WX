@@ -314,3 +314,6 @@
 .figure-badge-conflict { background: #fef3c7; color: #92400e; }
 .figure-badge-failed { background: #fee2e2; color: #991b1b; }
 .figure-badge-done { background: #d1fae5; color: #065f46; }
+
+.cover-defaults-actions { display: flex; gap: 8px; }
+.cover-defaults-actions .btn { flex: 1; font-size: 12px; padding: 6px 8px; }

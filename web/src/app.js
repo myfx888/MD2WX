@@ -21,6 +21,7 @@ import {
   IMAGE_HOST_UNCONFIGURED_HINT,
 } from './core/imagehost.js';
 import { collectImageRefs, matchFiles, applyPreviewMap, replaceInMarkdown } from './core/figuremap.js';
+import { writeCoverDefaults, readCoverDefaults } from './core/coverCopy.js';
 
 // 官方排版示范长文
 const DEFAULT_SAMPLE_ARTICLE = `---
@@ -83,6 +84,22 @@ let isSyncingScroll = false;
 let debounceTimer = null;
 let currentHtmlOutput = '';
 let currentCoverMeta = null; // 全局当前文章封面定制元数据，与正文顶部封面图联动
+
+/** 当前主题为自定义主题时返回其定义对象,否则 null(Task 5 主题工坊复用) */
+function resolveActiveThemeDef() {
+  if (currentThemeId && currentThemeId.startsWith('custom-')) {
+    return getCustomTheme(currentThemeId);
+  }
+  return null;
+}
+
+/** extractCoverMeta 的统一 options 注入:localStorage store + 自定义主题解析器 */
+function coverMetaOptions() {
+  return {
+    store: typeof localStorage !== 'undefined' ? localStorage : null,
+    getCustomTheme: (id) => getCustomTheme(id),
+  };
+}
 
 // DOM Elements
 const textarea = document.getElementById('markdown-input');
@@ -1425,7 +1442,7 @@ function initCoverStudio() {
 
   // 从编辑器正文重新智能提取
   function refreshMetaFromArticle() {
-    coverMeta = extractCoverMeta(textarea.value, coverThemeId);
+    coverMeta = extractCoverMeta(textarea.value, coverThemeId, coverMetaOptions());
     syncFormInputs();
   }
 
@@ -1573,6 +1590,28 @@ function initCoverStudio() {
     refreshMetaFromArticle();
     renderCover();
     showToast('已从当前文章提取最新标题与摘要', 'info');
+  });
+
+  // 全局品牌默认文案：保存 / 清除（writeCoverDefaults 负责去空格与全空丢弃）
+  const btnSaveDefaults = document.getElementById('btn-save-cover-defaults');
+  const btnClearDefaults = document.getElementById('btn-clear-cover-defaults');
+  btnSaveDefaults?.addEventListener('click', () => {
+    const store = typeof localStorage !== 'undefined' ? localStorage : null;
+    if (!store) { showToast('当前环境存储不可用,无法保存全局默认', 'error'); return; }
+    writeCoverDefaults(store, {
+      badge: inputBadge.value,
+      tag: inputTag.value,
+      author: inputAuthor.value,
+    });
+    showToast(readCoverDefaults(store)
+      ? '已存为全局默认,所有主题的封面将预填此文案'
+      : '全局默认已清空(三个输入框均为空)');
+  });
+  btnClearDefaults?.addEventListener('click', () => {
+    const store = typeof localStorage !== 'undefined' ? localStorage : null;
+    if (!store) { showToast('当前环境存储不可用', 'error'); return; }
+    writeCoverDefaults(store, {});
+    showToast('已清除全局默认,回到内置主题预设');
   });
 
   // 表单输入监听 (输入即时联动封面与正文顶部嵌入卡片)
