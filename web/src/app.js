@@ -1810,13 +1810,16 @@ function initThemeStudio() {
   tabPages[2].appendChild(stylesField);
   // tab3：封面默认文案（主题层 coverCopy：badge/tag/author）
   const coverCopyField = document.createElement('div');
-  coverCopyField.className = 'ts-field';
+  coverCopyField.className = 'ts-field ts-copy-group';
   coverCopyField.innerHTML =
-    '<label class="ts-label">封面默认文案（选此主题时封面预填，仅自定义主题生效）</label>' +
-    '<input type="text" class="ts-input" id="ts-cover-badge" placeholder="徽章，如 MYBRAND（留空走全局默认）">' +
-    '<input type="text" class="ts-input" id="ts-cover-tag" placeholder="默认标签，如 深度架构 · 极客手记">' +
-    '<input type="text" class="ts-input" id="ts-cover-author" placeholder="作者 / 品牌落款">' +
-    '<div class="ts-cover-copy-hint" id="ts-cover-copy-hint" style="display:none;color:#a1a1aa;font-size:12px;margin-top:4px;">内置主题的封面文案预设由代码维护，不可编辑</div>';
+    '<div class="ts-copy-hint">选此主题时封面预填；某项留空则回落全局默认。仅自定义主题生效。</div>' +
+    '<div class="ts-copy-row"><label class="settings-label" for="ts-cover-badge">徽章 Badge</label>' +
+    '<input type="text" class="settings-input" id="ts-cover-badge" placeholder="如 MYBRAND" autocomplete="off"></div>' +
+    '<div class="ts-copy-row"><label class="settings-label" for="ts-cover-tag">默认标签</label>' +
+    '<input type="text" class="settings-input" id="ts-cover-tag" placeholder="如 深度架构 · 极客手记" autocomplete="off"></div>' +
+    '<div class="ts-copy-row"><label class="settings-label" for="ts-cover-author">作者 / 品牌落款</label>' +
+    '<input type="text" class="settings-input" id="ts-cover-author" placeholder="如 万舟智算" autocomplete="off"></div>' +
+    '<div class="ts-cover-copy-hint" id="ts-cover-copy-hint" style="display:none;color:#a1a1aa;font-size:12px;">内置主题的封面文案预设由代码维护，不可编辑</div>';
   tabPages[3].appendChild(coverCopyField);
   tabPages.forEach((p) => editorEl.appendChild(p));
   tabsBar.addEventListener('click', (e) => {

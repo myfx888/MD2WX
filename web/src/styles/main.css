@@ -925,19 +925,23 @@ input:checked + .slider:before {
   padding: 6px 12px 2px;
 }
 
-/* 主题工坊：编辑面板标签页（颜色 | 排版 | 组件样式） */
+/* 主题工坊：编辑面板标签页（颜色 | 排版 | 组件样式 | 封面文案） */
 .ts-tabs {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   margin: 8px 0 12px;
   border-bottom: 1px solid var(--border-color, #e4e4e7);
 }
 
 .ts-tab {
+  flex: 1;
+  min-width: 0;
   border: none;
   background: none;
-  padding: 6px 12px;
+  padding: 6px 4px;
   font-size: 12.5px;
+  white-space: nowrap;
+  text-align: center;
   color: var(--text-secondary, #52525b);
   cursor: pointer;
   border-bottom: 2px solid transparent;
@@ -979,4 +983,35 @@ input:checked + .slider:before {
   flex: 1;
   margin-top: 0;
   padding: 5px 8px;
+}
+
+/* 主题工坊：封面文案 tab（coverCopy 表单分组） */
+.ts-copy-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ts-copy-hint {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-tertiary, #a1a1aa);
+  padding: 6px 8px;
+  background: rgba(127, 127, 127, 0.08);
+  border-radius: 6px;
+}
+
+.ts-copy-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ts-copy-row .settings-label {
+  margin-top: 0;
+  font-size: 12px;
+}
+
+.ts-copy-row .settings-input {
+  margin-top: 0;
 }
