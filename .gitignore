@@ -33,3 +33,4 @@ cloudflare/md2wx-worker/test/.coverCopy.bundle.mjs
 
 # Mimosa 安全扫描状态
 .mimosa/
+cloudflare/md2wx-worker/test/.coverWorkbench.bundle.mjs
