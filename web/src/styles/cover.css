@@ -1285,3 +1285,43 @@
   display: block;
 }
 
+
+/* ---------- 封面工作台保存按钮 (Header 常驻) ---------- */
+.cover-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cover-save-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  border-radius: 9px;
+  background: linear-gradient(135deg, #059669, #10b981);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: filter 0.18s ease, transform 0.12s ease;
+}
+
+.cover-save-btn:hover {
+  filter: brightness(1.12);
+}
+
+.cover-save-btn:active {
+  transform: scale(0.97);
+}
+
+.cover-save-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fbbf24;
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.9);
+}

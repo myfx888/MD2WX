@@ -22,6 +22,7 @@ import {
 } from './core/imagehost.js';
 import { collectImageRefs, matchFiles, applyPreviewMap, replaceInMarkdown } from './core/figuremap.js';
 import { writeCoverDefaults, readCoverDefaults } from './core/coverCopy.js';
+import { readCoverWorkbench, writeCoverWorkbench } from './core/coverWorkbench.js';
 
 // 官方排版示范长文
 const DEFAULT_SAMPLE_ARTICLE = `---
@@ -1414,6 +1415,9 @@ function initCoverStudio() {
   const inputVol = document.getElementById('input-cover-vol');
   const inputAuthor = document.getElementById('input-cover-author');
 
+  const btnSaveWorkbench = document.getElementById('btn-save-workbench');
+  const saveDot = document.getElementById('cover-save-dot');
+
   const viewport = document.getElementById('cover-canvas-viewport');
   const scaler = document.getElementById('cover-scaler-container');
   const renderTarget = document.getElementById('cover-render-target');
@@ -1432,6 +1436,36 @@ function initCoverStudio() {
     ? (getCustomTheme(id)?.baseId || 'tech-blue')
     : id);
   let coverMeta = {};
+
+  // 保存快照(设计: docs/superpowers/specs/2026-10-13-cover-workbench-save-design.md)
+  // lastSavedJson 是「已保存」基线:表单现场状态与之偏离时,保存按钮亮未保存圆点
+  let lastSavedJson = null;
+
+  const storeOrNull = () => (typeof localStorage !== 'undefined' ? localStorage : null);
+
+  // 表单现场状态 -> 快照对象(字段与 coverWorkbench.writeCoverWorkbench 一一对应)
+  const formSnapshot = () => ({
+    themeId: coverThemeId,
+    ratio: coverRatio,
+    title: inputTitle.value,
+    digest: inputDigest.value,
+    tag: inputTag.value,
+    badge: inputBadge.value,
+    vol: inputVol.value,
+    author: inputAuthor.value,
+  });
+
+  function refreshSaveDot() {
+    if (saveDot) saveDot.hidden = JSON.stringify(formSnapshot()) === lastSavedJson;
+  }
+
+  // 比例 tab 状态统一入口:点击切换与打开恢复共用
+  function applyRatioTab(ratio) {
+    coverRatio = ratio;
+    if (tabBanner) tabBanner.classList.toggle('active', ratio === 'banner');
+    if (tabSquare) tabSquare.classList.toggle('active', ratio === 'square');
+    if (tabDual) tabDual.classList.toggle('active', ratio === 'dual');
+  }
 
   const shareTitleEl = document.getElementById('preview-share-title');
   const shareDigestEl = document.getElementById('preview-share-digest');
@@ -1506,7 +1540,16 @@ function initCoverStudio() {
 
   // 打开模态框
   function openCoverModal() {
-    coverThemeId = currentThemeId;
+    const snap = readCoverWorkbench(storeOrNull());
+    if (snap) {
+      // 有保存配置:完整恢复主题/比例/文案——保存的配置是发布事实源
+      coverThemeId = snap.themeId;
+      applyRatioTab(snap.ratio);
+      coverMeta = { title: snap.title, digest: snap.digest, tag: snap.tag, badge: snap.badge, vol: snap.vol, author: snap.author };
+    } else {
+      coverThemeId = currentThemeId;
+      applyRatioTab('banner');
+    }
     if (selectThemeEl) {
       // 动态注入「我的自定义主题」分组（内置 9 项写死于 HTML），使自定义主题可选
       selectThemeEl.querySelector('optgroup[data-custom]')?.remove();
@@ -1530,7 +1573,11 @@ function initCoverStudio() {
         selectThemeEl.value = coverThemeId;
       }
     }
-    refreshMetaFromArticle();
+    if (snap) syncFormInputs();
+    else refreshMetaFromArticle();
+    // 打开时刻的现场状态作为「已保存」基线,避免一打开就亮未保存圆点
+    lastSavedJson = JSON.stringify(formSnapshot());
+    refreshSaveDot();
     overlay.classList.add('active');
     
     // 即时渲染并在弹窗展开动画期间多阶段精细校准缩放
@@ -1557,28 +1604,22 @@ function initCoverStudio() {
 
   // 比例切换
   tabBanner.addEventListener('click', () => {
-    tabBanner.classList.add('active');
-    tabSquare.classList.remove('active');
-    if (tabDual) tabDual.classList.remove('active');
-    coverRatio = 'banner';
+    applyRatioTab('banner');
     renderCover();
+    refreshSaveDot();
   });
 
   tabSquare.addEventListener('click', () => {
-    tabSquare.classList.add('active');
-    tabBanner.classList.remove('active');
-    if (tabDual) tabDual.classList.remove('active');
-    coverRatio = 'square';
+    applyRatioTab('square');
     renderCover();
+    refreshSaveDot();
   });
 
   if (tabDual) {
     tabDual.addEventListener('click', () => {
-      tabDual.classList.add('active');
-      tabBanner.classList.remove('active');
-      tabSquare.classList.remove('active');
-      coverRatio = 'dual';
+      applyRatioTab('dual');
       renderCover();
+      refreshSaveDot();
     });
   }
 
@@ -1615,6 +1656,7 @@ function initCoverStudio() {
       }
     }
     renderCover();
+    refreshSaveDot();
   });
 
   // 重新同步正文
@@ -1622,6 +1664,20 @@ function initCoverStudio() {
     refreshMetaFromArticle();
     renderCover();
     showToast('已从当前文章提取最新标题与摘要', 'info');
+  });
+
+  // 保存全套工作台配置;发布链路按此快照生成(消费接线见 initPublishStudio / renderPreview)
+  btnSaveWorkbench?.addEventListener('click', () => {
+    const store = storeOrNull();
+    if (!store) { showToast('当前环境存储不可用，无法保存封面配置', 'error'); return; }
+    try {
+      writeCoverWorkbench(store, formSnapshot());
+      lastSavedJson = JSON.stringify(formSnapshot());
+      refreshSaveDot();
+      showToast('已保存，发布时将按此配置生成封面', 'success');
+    } catch (err) {
+      showToast('保存失败: ' + (err.message || '存储异常'), 'error');
+    }
   });
 
   // 全局品牌默认文案：保存 / 清除（writeCoverDefaults 负责去空格与全空丢弃）
@@ -1648,36 +1704,42 @@ function initCoverStudio() {
     showToast('已清除全局默认,回到内置主题预设');
   });
 
-  // 表单输入监听 (输入即时联动封面与正文顶部嵌入卡片)
+  // 表单输入监听 (输入即时联动封面与正文顶部嵌入卡片,并刷新未保存圆点)
   inputTitle.addEventListener('input', (e) => {
     coverMeta.title = e.target.value;
     renderCover();
     scheduleRender();
+    refreshSaveDot();
   });
   inputDigest.addEventListener('input', (e) => {
     coverMeta.digest = e.target.value;
     renderCover();
     scheduleRender();
+    refreshSaveDot();
   });
   inputTag.addEventListener('input', (e) => {
     coverMeta.tag = e.target.value;
     renderCover();
     scheduleRender();
+    refreshSaveDot();
   });
   inputBadge.addEventListener('input', (e) => {
     coverMeta.badge = e.target.value;
     renderCover();
     scheduleRender();
+    refreshSaveDot();
   });
   inputVol.addEventListener('input', (e) => {
     coverMeta.vol = e.target.value;
     renderCover();
     scheduleRender();
+    refreshSaveDot();
   });
   inputAuthor.addEventListener('input', (e) => {
     coverMeta.author = e.target.value;
     renderCover();
     scheduleRender();
+    refreshSaveDot();
   });
 
   // 复制封面图片到剪贴板 (基于 Promise 瞬时手势保持与双引擎渲染)
