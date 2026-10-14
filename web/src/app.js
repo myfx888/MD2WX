@@ -22,7 +22,7 @@ import {
 } from './core/imagehost.js';
 import { collectImageRefs, matchFiles, applyPreviewMap, replaceInMarkdown } from './core/figuremap.js';
 import { writeCoverDefaults, readCoverDefaults } from './core/coverCopy.js';
-import { readCoverWorkbench, writeCoverWorkbench } from './core/coverWorkbench.js';
+import { readCoverWorkbench, writeCoverWorkbench, coverExportRatio } from './core/coverWorkbench.js';
 
 // 官方排版示范长文
 const DEFAULT_SAMPLE_ARTICLE = `---
@@ -99,6 +99,20 @@ function coverMetaOptions() {
   return {
     store: typeof localStorage !== 'undefined' ? localStorage : null,
     getCustomTheme: (id) => getCustomTheme(id),
+  };
+}
+
+/** 封面工作台保存配置 -> 发布链路渲染参数;无快照返回 null(调用方回落现状) */
+function getSavedCoverConfig() {
+  const snap = readCoverWorkbench(typeof localStorage !== 'undefined' ? localStorage : null);
+  if (!snap) return null;
+  const themeId = snap.themeId.startsWith('custom-')
+    ? (getCustomTheme(snap.themeId)?.baseId || 'tech-blue')
+    : snap.themeId;
+  return {
+    themeId,
+    ratio: snap.ratio,
+    meta: { title: snap.title, digest: snap.digest, tag: snap.tag, badge: snap.badge, vol: snap.vol, author: snap.author },
   };
 }
 
@@ -479,12 +493,14 @@ function renderPreview() {
 
   // 转换为微信专用的纯 Inline CSS HTML (注入排版微调参数、文末脚注设置与顶部封面卡片)
   const eff = effectiveThemeInfo();
+  const savedCoverCfg = getSavedCoverConfig();
   currentHtmlOutput = markdownToWechatHtml(body, eff.themeId, eff.override, {
     fontSize: currentFontSize,
     lineHeight: currentLineHeight,
     linkToFootnote: enableFootnotes,
     insertCover: insertCoverEnabled,
-    coverMeta: currentCoverMeta,
+    coverMeta: savedCoverCfg ? savedCoverCfg.meta : currentCoverMeta,
+    coverThemeId: savedCoverCfg ? savedCoverCfg.themeId : undefined,
     coverMetaOptions: coverMetaOptions(),
   });
   refreshFigureMatches();
@@ -877,11 +893,26 @@ function initPublishStudio() {
     const useWorkshop = useCoverToggle.checked;
     const meta = extractPublishMeta(textarea.value);
     if (useWorkshop) {
-      // 封面工坊当前封面：CSS 同源渲染并等比缩到缩略尺寸
-      const ratio = 150 / 1175;
-      coverThumb.innerHTML = `<div class="publish-cover-scaled" style="width:1175px;height:500px;transform:scale(${ratio});">${renderCoverHtml(currentThemeId, 'banner', currentCoverMeta || {}, false)}</div>`;
+      const cfg = getSavedCoverConfig();
+      if (!cfg) {
+        // 无保存配置:与历史版本逐字节一致的回落渲染(兼容红线,勿改此分支的输出串)
+        const ratio = 150 / 1175;
+        coverThumb.innerHTML = `<div class="publish-cover-scaled" style="width:1175px;height:500px;transform:scale(${ratio});">${renderCoverHtml(currentThemeId, 'banner', currentCoverMeta || {}, false)}</div>`;
+        coverStatus.className = 'publish-cover-status is-ok';
+        coverStatus.textContent = '封面来源：封面工坊 ✓（推送时自动导出上传）';
+        return;
+      }
+      // 发布所见即推送所得:严格按保存配置渲染推送同款比例
+      const outRatio = coverExportRatio(cfg.ratio);
+      const dim = COVER_DIMENSIONS[outRatio] || COVER_DIMENSIONS.banner;
+      const s = outRatio === 'banner' ? 150 / dim.width : Math.max(150 / dim.width, 64 / dim.height);
+      const offX = (150 - dim.width * s) / 2;
+      const offY = (64 - dim.height * s) / 2;
+      coverThumb.innerHTML = `<div class="publish-cover-scaled" style="width:${dim.width}px;height:${dim.height}px;transform:scale(${s});margin-left:${offX}px;margin-top:${offY}px;">${renderCoverHtml(cfg.themeId, outRatio, cfg.meta, false)}</div>`;
       coverStatus.className = 'publish-cover-status is-ok';
-      coverStatus.textContent = '封面来源：封面工坊 ✓（推送时自动导出上传）';
+      coverStatus.textContent = cfg.ratio === 'dual'
+        ? '封面来源：封面工坊 ✓（双拼配置，推送按 2.35:1 导出）'
+        : '封面来源：封面工坊 ✓（推送时自动导出上传）';
       return;
     }
     if (meta.coverImageSrc) {
@@ -906,7 +937,7 @@ function initPublishStudio() {
 
   function refreshUseCoverAvailability() {
     // 工坊封面元数据存在即可勾选（打开过封面工坊或正文可提取）
-    const available = !!currentCoverMeta || !!extractPublishMeta(textarea.value).title;
+    const available = !!getSavedCoverConfig() || !!currentCoverMeta || !!extractPublishMeta(textarea.value).title;
     useCoverRow.classList.toggle('is-disabled', !available);
     useCoverToggle.disabled = !available;
   }
@@ -959,8 +990,9 @@ function initPublishStudio() {
     let coverDataUrl = '';
     try {
       if (useCoverToggle.checked) {
-        // renderCoverDirectCanvas 返回 Promise<Blob>（内部 canvas.toBlob），需 await
-        const blob = await renderCoverDirectCanvas(currentThemeId, 'banner', currentCoverMeta || {}, 1);
+        // 按保存配置导出(无快照回落现状);双拼回落 2.35:1,双拼素材不直推草稿箱
+        const cfg = getSavedCoverConfig() || { themeId: currentThemeId, ratio: 'banner', meta: currentCoverMeta || {} };
+        const blob = await renderCoverDirectCanvas(cfg.themeId, coverExportRatio(cfg.ratio), cfg.meta, 1);
         coverDataUrl = await new Promise((resolve, reject) => {
           const fr = new FileReader();
           fr.onload = () => resolve(fr.result);

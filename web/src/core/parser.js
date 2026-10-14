@@ -594,7 +594,7 @@ export function markdownToWechatHtml(mdText, themeName = DEFAULT_THEME_ID, custo
   const insertCover = renderOptions.insertCover !== false;
   if (insertCover) {
     const coverMeta = renderOptions.coverMeta || extractCoverMeta(mdText, themeName, renderOptions.coverMetaOptions || {});
-    const headerCoverHtml = renderWechatArticleHeaderCover(themeName, coverMeta);
+    const headerCoverHtml = renderWechatArticleHeaderCover(renderOptions.coverThemeId || themeName, coverMeta);
     if (headerCoverHtml) {
       htmlParts.push(headerCoverHtml);
     }
