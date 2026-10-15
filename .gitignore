@@ -34,3 +34,8 @@ cloudflare/md2wx-worker/test/.coverCopy.bundle.mjs
 # Mimosa 安全扫描状态
 .mimosa/
 cloudflare/md2wx-worker/test/.coverWorkbench.bundle.mjs
+
+# EdgeOne Pages 本地产物（构建脚本生成，不入库）
+edgeone-dist/
+edge-functions/
+cloudflare/md2wx-worker/test/.edgeone-entry.bundle.mjs

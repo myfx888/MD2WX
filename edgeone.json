@@ -1,0 +1,24 @@
+{
+  "buildCommand": "node scripts/edgeone-build.mjs",
+  "outputDirectory": "edgeone-dist",
+  "headers": [
+    {
+      "source": "/*",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400" }
+      ]
+    },
+    {
+      "source": "/index.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=300" }
+      ]
+    },
+    {
+      "source": "/hub.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=300" }
+      ]
+    }
+  ]
+}

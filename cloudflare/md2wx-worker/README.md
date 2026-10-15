@@ -63,3 +63,18 @@ curl -s "https://<worker-domain>/api/draft?key=<DRAFT_API_KEY>" \
 ```
 
 GitHub Pages 场景：在 Web Studio 设置中把"推送端点 URL"填为 Worker 完整地址即可。
+
+## EdgeOne Pages 部署（可选）
+
+同一份 `worker.js` 也支持部署到腾讯 EdgeOne Pages：`edgeone/` 目录提供入口适配与
+EdgeOne KV → R2 存储适配，构建脚本 `scripts/edgeone-build.mjs` 产出静态站 +
+`edge-functions/[[default]].js` catch-all。平台差异（KV 键字符集/值上限、无限流绑定、
+请求体上限）与部署步骤见 [edgeone/README.md](edgeone/README.md)。
+
+## 缓存策略（全站上限 1 天）
+
+- 静态站点：`web/public/_headers`（构建后随 dist 部署）—— 资产 `max-age=86400`，
+  `index.html`/`hub.html` `max-age=300`。
+- `/api/*`：`Cache-Control: no-store`（不缓存）。
+- `/hub/*` 预览：HTML `max-age=300`，其余资产 `max-age=86400`；项目列表接口经
+  Cache API 边缘缓存 60 秒。上限由 worker.js `SITE_CACHE_MAX_AGE = 86400` 统一收口。

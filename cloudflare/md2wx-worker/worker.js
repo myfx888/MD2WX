@@ -32,10 +32,18 @@ const CORS_HEADERS = {
   'Access-Control-Max-Age': '86400',
 };
 
+// 全站缓存上限 1 天：任何 Cache-Control max-age 不得超过此值（静态站点的上限配置
+// 在 web/public/_headers 与仓库根 edgeone.json；/api 一律 no-store，Hub 预览见 serveHubPreview）
+const SITE_CACHE_MAX_AGE = 86400;
+
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS_HEADERS },
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+      ...CORS_HEADERS,
+    },
   });
 }
 
@@ -323,7 +331,10 @@ async function serveHubPreview(request, url, env) {
   const ext = (filePath.split('.').pop() || '').toLowerCase();
   const headers = {
     'Content-Type': HUB_CONTENT_TYPES[ext] || 'application/octet-stream',
-    'Cache-Control': ext === 'html' ? 'public, max-age=300' : 'public, max-age=86400',
+    // HTML 短缓存保证发布后快速生效；其余资产取全站上限 1 天
+    'Cache-Control': ext === 'html'
+      ? 'public, max-age=300'
+      : `public, max-age=${SITE_CACHE_MAX_AGE}`,
   };
   if (request.method === 'HEAD') return new Response(null, { status: 200, headers });
   return new Response(await obj.arrayBuffer(), { status: 200, headers });

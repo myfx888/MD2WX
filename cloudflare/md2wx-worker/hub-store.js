@@ -30,11 +30,17 @@ export function findEntryHtml(objects, prefix) {
   return rootEntry ? rootEntry.slice(prefix.length) : rel.sort()[0].slice(prefix.length);
 }
 
+// size/uploaded 在 EdgeOne KV 适配层缺失（透传 undefined），以 null 回报"未知"；
+// Cloudflare R2 恒有值，行为不变
 function projAgg(objects, prefix) {
   const entry = findEntryHtml(objects, prefix);
   let fileCount = 0; let totalSize = 0; let latest = 0;
-  for (const o of objects) { fileCount++; totalSize += o.size; latest = Math.max(latest, +new Date(o.uploaded)); }
-  return { entry, fileCount, totalSize, updatedAt: new Date(latest).toISOString() };
+  for (const o of objects) {
+    fileCount++;
+    totalSize += o.size || 0;
+    if (o.uploaded) latest = Math.max(latest, +new Date(o.uploaded));
+  }
+  return { entry, fileCount, totalSize, updatedAt: latest ? new Date(latest).toISOString() : null };
 }
 
 export async function listProjects(env) {
@@ -58,8 +64,8 @@ export async function listFiles(env, cat, proj) {
   const all = await env.HUB.list({ prefix });
   return all.objects.map((o) => ({
     path: o.key.slice(prefix.length),
-    size: o.size,
-    updatedAt: new Date(o.uploaded).toISOString(),
+    size: o.size ?? null,
+    updatedAt: o.uploaded ? new Date(o.uploaded).toISOString() : null,
   }));
 }
 
