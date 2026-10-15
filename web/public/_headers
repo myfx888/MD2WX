@@ -1,9 +1,18 @@
-# 全站缓存上限 1 天（站点静态资产；/api/* 与 /hub/* 由 Worker 响应头控制，不走本文件）
-# Cloudflare Workers Assets 读取本文件；EdgeOne 的等效配置在仓库根 edgeone.json
-/*
+# 全站缓存上限 1 天（Cloudflare Workers Assets 读取；EdgeOne 等效配置在仓库根 edgeone.json）
+# 注意：_headers 多规则命中同一路径时头部会拼接而非覆盖，因此这里不用 /* 兜底，
+# 按产物根目录文件逐一枚举保持互斥（新增根级文件需在此补一行，否则无显式缓存头）
+/assets/*
   Cache-Control: public, max-age=86400
 
-# HTML 入口短缓存：部署后 5 分钟内全量生效（仍不超过 1 天上限）
+/apple-touch-icon.png
+  Cache-Control: public, max-age=86400
+
+/favicon.png
+  Cache-Control: public, max-age=86400
+
+/favicon.svg
+  Cache-Control: public, max-age=86400
+
 /index.html
   Cache-Control: public, max-age=300
 
